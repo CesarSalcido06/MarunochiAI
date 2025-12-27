@@ -10,6 +10,14 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from ..core.inference import InferenceEngine, ModelSize
+from ..code_understanding import (
+    CodeParser,
+    CodeChunker,
+    CodebaseIndexer,
+    KeywordIndexer,
+    HybridSearcher,
+    CodebaseWatcher,
+)
 from .models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -17,17 +25,25 @@ from .models import (
     Usage,
     ChatMessage,
     HealthResponse,
+    CodebaseSearchRequest,
+    CodebaseSearchResponse,
+    CodebaseSearchResult,
 )
 
 
 # Global inference engine
 engine: InferenceEngine = None
 
+# Global code understanding components
+code_indexer: CodebaseIndexer = None
+hybrid_searcher: HybridSearcher = None
+code_watcher: CodebaseWatcher = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup resources."""
-    global engine
+    global engine, code_indexer, hybrid_searcher, code_watcher
 
     logger.info("Starting MarunochiAI server...")
 
@@ -42,11 +58,35 @@ async def lifespan(app: FastAPI):
     if not healthy:
         logger.warning("Ollama health check failed, but continuing anyway")
 
+    # Initialize code understanding components (optional)
+    try:
+        logger.info("Initializing code understanding components...")
+
+        # Create indexers
+        code_indexer = CodebaseIndexer(collection_name="marunochithe_codebase")
+        keyword_indexer = KeywordIndexer()
+
+        # Create hybrid searcher
+        hybrid_searcher = HybridSearcher(
+            vector_indexer=code_indexer,
+            keyword_indexer=keyword_indexer,
+            rrf_k=60
+        )
+
+        logger.info("Code understanding components ready")
+    except Exception as e:
+        logger.warning(f"Code understanding initialization failed: {e}")
+        logger.warning("Server will run without code search capabilities")
+
     logger.info("MarunochiAI server ready")
 
     yield
 
     logger.info("Shutting down MarunochiAI server...")
+
+    # Cleanup code watcher if running
+    if code_watcher:
+        code_watcher.stop_watching()
 
 
 # Create FastAPI app
@@ -218,6 +258,183 @@ async def _stream_completion(
         yield f"data: {error_chunk}\n\n"
 
 
+@app.post("/v1/codebase/index", tags=["Code Understanding"])
+async def index_codebase(codebase_path: str, watch: bool = False) -> Dict:
+    """
+    Index entire codebase for semantic search.
+
+    Args:
+        codebase_path: Path to codebase directory
+        watch: If True, start filesystem watcher for incremental updates
+
+    Returns:
+        Statistics about indexing operation
+    """
+    global code_indexer, code_watcher
+
+    if not code_indexer:
+        raise HTTPException(
+            status_code=503,
+            detail="Code understanding not initialized"
+        )
+
+    try:
+        logger.info(f"Indexing codebase: {codebase_path}")
+
+        # Index codebase
+        result = await code_indexer.index_codebase(codebase_path)
+
+        # Start watcher if requested
+        if watch and not code_watcher:
+            logger.info("Starting filesystem watcher...")
+
+            parser = CodeParser()
+            chunker = CodeChunker()
+            keyword_indexer = hybrid_searcher.keyword_indexer
+
+            code_watcher = CodebaseWatcher(
+                codebase_path=codebase_path,
+                vector_indexer=code_indexer,
+                keyword_indexer=keyword_indexer,
+                debounce_ms=500
+            )
+
+            await code_watcher.start_watching()
+            result['watcher_started'] = True
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Indexing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/codebase/search", tags=["Code Understanding"])
+async def codebase_search(
+    request: CodebaseSearchRequest
+) -> CodebaseSearchResponse:
+    """
+    Semantic code search using hybrid vector + keyword search.
+
+    Args:
+        request: Search request with query and parameters
+
+    Returns:
+        Matching code chunks with similarity scores
+    """
+    if not hybrid_searcher:
+        raise HTTPException(
+            status_code=503,
+            detail="Code understanding not initialized"
+        )
+
+    try:
+        logger.debug(f"Searching codebase: {request.query}")
+
+        # Perform hybrid search
+        results = await hybrid_searcher.search(
+            query=request.query,
+            mode="hybrid",
+            limit=request.limit
+        )
+
+        # Convert to API response format
+        search_results = [
+            CodebaseSearchResult(
+                filepath=r.filepath,
+                content=r.content,
+                similarity=r.similarity,
+                metadata={
+                    'name': r.name,
+                    'language': r.language.value,
+                    'chunk_type': r.chunk_type,
+                    'line_range': list(r.line_range),
+                }
+            )
+            for r in results
+        ]
+
+        return CodebaseSearchResponse(
+            query=request.query,
+            results=search_results,
+            total=len(search_results)
+        )
+
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/codebase/stats", tags=["Code Understanding"])
+async def codebase_stats() -> Dict:
+    """
+    Get code understanding statistics.
+
+    Returns:
+        Indexing and search statistics
+    """
+    if not hybrid_searcher:
+        raise HTTPException(
+            status_code=503,
+            detail="Code understanding not initialized"
+        )
+
+    try:
+        stats = await hybrid_searcher.get_stats()
+
+        # Add watcher status
+        stats['watcher_running'] = code_watcher is not None and code_watcher._running
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"Stats retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/codebase/refresh", tags=["Code Understanding"])
+async def refresh_index(filepath: Optional[str] = None) -> Dict:
+    """
+    Refresh code index for a file or entire codebase.
+
+    Args:
+        filepath: Specific file to refresh, or None for full refresh
+
+    Returns:
+        Refresh operation result
+    """
+    if not code_indexer:
+        raise HTTPException(
+            status_code=503,
+            detail="Code understanding not initialized"
+        )
+
+    try:
+        if filepath:
+            # Refresh single file
+            logger.info(f"Refreshing index for: {filepath}")
+            result = await code_indexer.index_file(filepath)
+            return {
+                'filepath': filepath,
+                'chunks_indexed': result.get('indexed_chunks', 0),
+                'duration_ms': result.get('duration_ms', 0)
+            }
+        else:
+            # Full refresh - clear and reindex
+            logger.info("Performing full index refresh")
+            await code_indexer.clear_index()
+
+            # Note: User needs to call /index again with codebase path
+            return {
+                'status': 'cleared',
+                'message': 'Index cleared. Call /v1/codebase/index to reindex.'
+            }
+
+    except Exception as e:
+        logger.error(f"Refresh failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -228,6 +445,10 @@ async def root():
         "endpoints": {
             "health": "/health",
             "chat": "/v1/chat/completions",
+            "codebase_index": "/v1/codebase/index",
+            "codebase_search": "/v1/codebase/search",
+            "codebase_stats": "/v1/codebase/stats",
+            "codebase_refresh": "/v1/codebase/refresh",
         },
     }
 
