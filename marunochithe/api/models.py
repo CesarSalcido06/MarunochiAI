@@ -72,3 +72,56 @@ class HealthResponse(BaseModel):
     ollama_available: bool
     models_loaded: List[str]
     version: str
+
+
+# A2A Integration Models (for BenchAI integration)
+
+class SyncRequest(BaseModel):
+    """Request to sync data from another agent."""
+    from_agent: str
+    sync_type: str  # "experience", "knowledge", "pattern"
+    items: List[Dict]
+    timestamp: Optional[str] = None
+
+
+class SyncResponse(BaseModel):
+    """Response to sync request."""
+    status: str
+    from_agent: str
+    items_processed: int
+    sync_type: str
+
+
+class ShareRequest(BaseModel):
+    """Request to share data with another agent."""
+    requester: str
+    sync_type: str = "experience"
+    since: Optional[str] = None
+    limit: int = 50
+
+
+class ShareResponse(BaseModel):
+    """Response containing shared data."""
+    status: str
+    for_agent: str
+    sync_type: str
+    items: List[Dict]
+    count: int
+
+
+class A2ATaskRequest(BaseModel):
+    """Task request from another agent."""
+    from_agent: str
+    task_type: str
+    task_description: str
+    context: Optional[Dict] = None
+    priority: str = "normal"
+    callback_url: Optional[str] = None
+
+
+class A2ATaskResponse(BaseModel):
+    """Response to task request."""
+    task_id: str
+    status: str  # "completed", "pending", "failed"
+    result: Optional[Dict] = None
+    message: Optional[str] = None

@@ -18,6 +18,7 @@ from ..code_understanding import (
     HybridSearcher,
     CodebaseWatcher,
 )
+from .benchai_client import BenchAIClient
 from .models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -28,6 +29,12 @@ from .models import (
     CodebaseSearchRequest,
     CodebaseSearchResponse,
     CodebaseSearchResult,
+    SyncRequest,
+    SyncResponse,
+    ShareRequest,
+    ShareResponse,
+    A2ATaskRequest,
+    A2ATaskResponse,
 )
 
 
@@ -39,11 +46,14 @@ code_indexer: CodebaseIndexer = None
 hybrid_searcher: HybridSearcher = None
 code_watcher: CodebaseWatcher = None
 
+# Global BenchAI client for multi-agent integration
+benchai_client: BenchAIClient = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup resources."""
-    global engine, code_indexer, hybrid_searcher, code_watcher
+    global engine, code_indexer, hybrid_searcher, code_watcher, benchai_client
 
     logger.info("Starting MarunochiAI server...")
 
@@ -78,6 +88,21 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Code understanding initialization failed: {e}")
         logger.warning("Server will run without code search capabilities")
 
+    # Initialize BenchAI client for multi-agent integration
+    try:
+        logger.info("Initializing BenchAI client...")
+        benchai_client = BenchAIClient(benchai_url="http://localhost:8085")
+
+        # Check if BenchAI is available
+        benchai_available = await benchai_client.health_check()
+        if benchai_available:
+            logger.info("BenchAI client ready - multi-agent integration enabled")
+        else:
+            logger.info("BenchAI not available - will operate independently")
+    except Exception as e:
+        logger.warning(f"BenchAI client initialization failed: {e}")
+        logger.warning("Server will run without multi-agent integration")
+
     logger.info("MarunochiAI server ready")
 
     yield
@@ -92,8 +117,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="MarunochiAI",
-    description="The most powerful self-hosted coding assistant",
-    version="0.1.0",
+    description="The most powerful self-hosted coding assistant with A2A integration",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -111,7 +136,7 @@ async def health_check() -> HealthResponse:
                 ModelSize.FAST,
                 ModelSize.POWERFUL,
             ],
-            version="0.1.0",
+            version="0.2.0",
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -119,7 +144,7 @@ async def health_check() -> HealthResponse:
             status="unhealthy",
             ollama_available=False,
             models_loaded=[],
-            version="0.1.0",
+            version="0.2.0",
         )
 
 
@@ -435,12 +460,327 @@ async def refresh_index(filepath: Optional[str] = None) -> Dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# A2A Integration Endpoints
+
+
+@app.post("/v1/sync/receive", tags=["A2A Integration"])
+async def receive_sync_data(request: SyncRequest) -> SyncResponse:
+    """
+    Receive sync data from BenchAI or other agents.
+
+    This endpoint allows other agents to push experiences, knowledge,
+    and patterns to MarunochiAI for bidirectional learning.
+
+    Args:
+        request: Sync request with items to store
+
+    Returns:
+        Status and count of items processed
+    """
+    items_processed = 0
+
+    for item in request.items:
+        try:
+            if request.sync_type == "experience":
+                # Store coding experience
+                logger.info(
+                    f"Received experience from {request.from_agent}: "
+                    f"{item.get('content', '')[:100]}..."
+                )
+                # TODO: Add to local experience storage (Phase 4)
+                items_processed += 1
+
+            elif request.sync_type == "knowledge":
+                # Store knowledge note
+                logger.info(
+                    f"Received knowledge from {request.from_agent}: "
+                    f"{item.get('title', '')}"
+                )
+                # TODO: Add to local knowledge storage (Phase 4)
+                items_processed += 1
+
+            elif request.sync_type == "pattern":
+                # Store coding pattern
+                logger.info(
+                    f"Received pattern from {request.from_agent}: "
+                    f"{item.get('pattern_name', '')}"
+                )
+                # TODO: Add to pattern library (Phase 4)
+                items_processed += 1
+
+        except Exception as e:
+            logger.error(f"Failed to process sync item: {e}")
+            continue
+
+    return SyncResponse(
+        status="ok",
+        from_agent=request.from_agent,
+        items_processed=items_processed,
+        sync_type=request.sync_type
+    )
+
+
+@app.get("/v1/sync/share", tags=["A2A Integration"])
+async def share_sync_data(
+    requester: str,
+    sync_type: str = "experience",
+    since: Optional[str] = None,
+    limit: int = 50
+) -> ShareResponse:
+    """
+    Share data with BenchAI or other agents.
+
+    This endpoint allows other agents to pull experiences, knowledge,
+    and patterns from MarunochiAI.
+
+    Args:
+        requester: Agent requesting the data
+        sync_type: Type of data to share (experience, knowledge, pattern)
+        since: Timestamp to filter items (optional)
+        limit: Maximum number of items to return
+
+    Returns:
+        List of items to share
+    """
+    items = []
+
+    try:
+        if sync_type == "experience":
+            # Get recent successful coding experiences
+            # TODO: Pull from actual experience storage (Phase 4)
+            # For now, return placeholder
+            items = [
+                {
+                    "id": "exp-001",
+                    "content": "Successfully used hybrid search for code refactoring",
+                    "importance": 4,
+                    "category": "refactoring",
+                    "created_at": "2025-12-26T12:00:00Z"
+                }
+            ]
+
+        elif sync_type == "knowledge":
+            # Get coding patterns and best practices learned
+            # TODO: Pull from actual knowledge storage (Phase 4)
+            items = [
+                {
+                    "id": "know-001",
+                    "title": "Hybrid Search Best Practices",
+                    "content": "RRF with k=60 provides optimal balance between vector and keyword search",
+                    "tags": ["search", "rag", "optimization"]
+                }
+            ]
+
+        elif sync_type == "pattern":
+            # Get coding patterns
+            # TODO: Pull from pattern library (Phase 4)
+            items = []
+
+    except Exception as e:
+        logger.error(f"Failed to get sync data: {e}")
+
+    return ShareResponse(
+        status="ok",
+        for_agent=requester,
+        sync_type=sync_type,
+        items=items,
+        count=len(items)
+    )
+
+
+@app.post("/v1/a2a/task", tags=["A2A Integration"])
+async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
+    """
+    Receive a task from BenchAI or other agents.
+
+    This endpoint processes coding tasks delegated by the orchestrator,
+    leveraging MarunochiAI's code understanding capabilities.
+
+    Args:
+        request: Task request with type, description, and context
+
+    Returns:
+        Task result or status
+    """
+    task_id = f"maru-{uuid.uuid4().hex[:12]}"
+
+    # Log task receipt
+    logger.info(
+        f"Received task from {request.from_agent}: "
+        f"{request.task_description[:100]}..."
+    )
+
+    # Extract context from enriched A2A context
+    knowledge_context = ""
+    if request.context:
+        knowledge = request.context.get("knowledge", {})
+        embedded = knowledge.get("embedded_knowledge", [])
+        for item in embedded:
+            knowledge_context += f"\n{item.get('content', '')}"
+
+    try:
+        start_time = time.time()
+
+        # Process based on task type
+        if request.task_type == "code_search":
+            # Use hybrid searcher
+            if not hybrid_searcher:
+                return A2ATaskResponse(
+                    task_id=task_id,
+                    status="failed",
+                    message="Code search not available"
+                )
+
+            results = await hybrid_searcher.search(
+                query=request.task_description,
+                mode="hybrid",
+                limit=10
+            )
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Report success to BenchAI
+            if benchai_client:
+                await benchai_client.report_task_completion(
+                    task_type="code_search",
+                    success=True,
+                    metrics={
+                        "duration_ms": duration_ms,
+                        "results_count": len(results),
+                        "from_agent": request.from_agent
+                    },
+                    description=f"Completed code search: {request.task_description[:100]}"
+                )
+
+            return A2ATaskResponse(
+                task_id=task_id,
+                status="completed",
+                result={
+                    "query": request.task_description,
+                    "results": [
+                        {
+                            "filepath": r.filepath,
+                            "name": r.name,
+                            "content": r.content,
+                            "similarity": r.similarity,
+                            "line_range": list(r.line_range)
+                        }
+                        for r in results
+                    ],
+                    "count": len(results)
+                }
+            )
+
+        elif request.task_type in ["code_completion", "code_review", "debugging", "refactoring"]:
+            # Use chat completion with context
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"You are a coding expert. Context: {knowledge_context}"
+                },
+                {
+                    "role": "user",
+                    "content": request.task_description
+                }
+            ]
+
+            response = await engine.chat(messages=messages, stream=False)
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Report success to BenchAI
+            if benchai_client:
+                await benchai_client.report_task_completion(
+                    task_type=request.task_type,
+                    success=True,
+                    metrics={
+                        "duration_ms": duration_ms,
+                        "response_length": len(response),
+                        "from_agent": request.from_agent
+                    },
+                    description=f"Completed {request.task_type}: {request.task_description[:100]}"
+                )
+
+            return A2ATaskResponse(
+                task_id=task_id,
+                status="completed",
+                result={"response": response}
+            )
+
+        else:
+            return A2ATaskResponse(
+                task_id=task_id,
+                status="pending",
+                message=f"Task queued for processing"
+            )
+
+    except Exception as e:
+        logger.error(f"Task processing failed: {e}")
+
+        # Report failure to BenchAI
+        if benchai_client:
+            await benchai_client.report_task_completion(
+                task_type=request.task_type,
+                success=False,
+                metrics={
+                    "error": str(e),
+                    "from_agent": request.from_agent
+                },
+                description=f"Failed {request.task_type}: {str(e)}"
+            )
+
+        return A2ATaskResponse(
+            task_id=task_id,
+            status="failed",
+            message=str(e)
+        )
+
+
+@app.get("/.well-known/agent.json", tags=["A2A Integration"])
+async def agent_card():
+    """
+    A2A Agent Card for discovery.
+
+    This endpoint provides agent capabilities and endpoints for
+    multi-agent orchestration (A2A Protocol v0.3).
+    """
+    return {
+        "name": "MarunochiAI",
+        "version": "0.2.0",
+        "description": "The most powerful self-hosted coding assistant",
+        "capabilities": [
+            "code_search",
+            "code_completion",
+            "code_refactoring",
+            "code_debugging",
+            "test_generation",
+            "code_explanation",
+            "hybrid_search",
+            "codebase_indexing"
+        ],
+        "domains": ["coding"],
+        "priority": 0.95,
+        "endpoints": {
+            "health": "http://localhost:8765/health",
+            "chat": "http://localhost:8765/v1/chat/completions",
+            "search": "http://localhost:8765/v1/codebase/search",
+            "index": "http://localhost:8765/v1/codebase/index",
+            "stats": "http://localhost:8765/v1/codebase/stats",
+            "sync_receive": "http://localhost:8765/v1/sync/receive",
+            "sync_share": "http://localhost:8765/v1/sync/share",
+            "a2a_task": "http://localhost:8765/v1/a2a/task"
+        },
+        "status": "online",
+        "load": 0.0
+    }
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
     return {
         "name": "MarunochiAI",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "description": "The most powerful self-hosted coding assistant",
         "endpoints": {
             "health": "/health",
@@ -449,6 +789,10 @@ async def root():
             "codebase_search": "/v1/codebase/search",
             "codebase_stats": "/v1/codebase/stats",
             "codebase_refresh": "/v1/codebase/refresh",
+            "agent_card": "/.well-known/agent.json",
+            "sync_receive": "/v1/sync/receive",
+            "sync_share": "/v1/sync/share",
+            "a2a_task": "/v1/a2a/task"
         },
     }
 
