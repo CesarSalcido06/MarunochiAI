@@ -3,7 +3,7 @@
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Union, Dict, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -148,10 +148,10 @@ async def health_check() -> HealthResponse:
         )
 
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", response_model=None)
 async def chat_completions(
     request: ChatCompletionRequest
-) -> ChatCompletionResponse | StreamingResponse:
+):
     """
     OpenAI-compatible chat completions endpoint.
 

@@ -2,7 +2,7 @@
 
 import asyncio
 from enum import Enum
-from typing import AsyncIterator, Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional, Union
 from loguru import logger
 import ollama
 
@@ -123,7 +123,7 @@ class InferenceEngine:
         stream: bool = False,
         context: Optional[Dict] = None,
         **kwargs
-    ) -> str | AsyncIterator[str]:
+    ) -> Union[str, AsyncIterator[str]]:
         """
         Generate chat completion with intelligent model selection.
 
