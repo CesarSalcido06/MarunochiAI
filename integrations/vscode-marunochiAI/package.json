@@ -1,0 +1,209 @@
+{
+  "name": "vscode-marunochiAI",
+  "displayName": "MarunochiAI",
+  "description": "The most powerful VSCode extension for AI-powered coding with semantic code understanding",
+  "version": "0.2.0",
+  "publisher": "MarunochiAI",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "assistant",
+    "code",
+    "completion",
+    "semantic-search",
+    "ollama",
+    "self-hosted"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "marunochiAI.indexWorkspace",
+        "title": "MarunochiAI: Index Workspace",
+        "icon": "$(database)"
+      },
+      {
+        "command": "marunochiAI.searchCode",
+        "title": "MarunochiAI: Search Code",
+        "icon": "$(search)"
+      },
+      {
+        "command": "marunochiAI.openChat",
+        "title": "MarunochiAI: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "marunochiAI.explainCode",
+        "title": "MarunochiAI: Explain Code"
+      },
+      {
+        "command": "marunochiAI.refactorCode",
+        "title": "MarunochiAI: Refactor Code"
+      },
+      {
+        "command": "marunochiAI.debugCode",
+        "title": "MarunochiAI: Debug Code"
+      },
+      {
+        "command": "marunochiAI.generateTests",
+        "title": "MarunochiAI: Generate Tests"
+      },
+      {
+        "command": "marunochiAI.showStats",
+        "title": "MarunochiAI: Show Statistics"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "marunochiAI.explainCode",
+          "group": "marunochiAI@1"
+        },
+        {
+          "when": "editorHasSelection",
+          "command": "marunochiAI.refactorCode",
+          "group": "marunochiAI@2"
+        },
+        {
+          "when": "editorHasSelection",
+          "command": "marunochiAI.debugCode",
+          "group": "marunochiAI@3"
+        },
+        {
+          "when": "editorHasSelection",
+          "command": "marunochiAI.generateTests",
+          "group": "marunochiAI@4"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "marunochiAI.explainCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "marunochiAI.refactorCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "marunochiAI.debugCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "marunochiAI.generateTests",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "marunochiAI",
+          "title": "MarunochiAI",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "marunochiAI": [
+        {
+          "id": "marunochiAI.searchView",
+          "name": "Code Search"
+        },
+        {
+          "id": "marunochiAI.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MarunochiAI",
+      "properties": {
+        "marunochiAI.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8765",
+          "description": "MarunochiAI API server URL"
+        },
+        "marunochiAI.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional API key for authentication"
+        },
+        "marunochiAI.model": {
+          "type": "string",
+          "enum": ["auto", "7b", "14b", "custom"],
+          "default": "auto",
+          "description": "Model to use for completions"
+        },
+        "marunochiAI.autoIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically index workspace on startup"
+        },
+        "marunochiAI.enableCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI-powered code completions"
+        },
+        "marunochiAI.searchLimit": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum search results to display"
+        },
+        "marunochiAI.enableInlineChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline chat features"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "marunochiAI.searchCode",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f"
+      },
+      {
+        "command": "marunochiAI.openChat",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c"
+      },
+      {
+        "command": "marunochiAI.explainCode",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.40.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
