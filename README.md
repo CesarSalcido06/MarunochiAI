@@ -134,19 +134,49 @@ MarunochiAI automatically selects the optimal model:
 - **Complex tasks** (refactoring, architecture) → 14B (4-8s, 25 t/s)
 - **Custom tasks** (your domain) → Fine-tuned model (if available)
 
-## 🔄 BenchAI Integration
+## 🔄 Multi-Agent Integration (A2A Protocol)
 
-MarunochiAI works bidirectionally with BenchAI:
+**Version 0.2.0** introduces full Agent-to-Agent (A2A) Protocol v0.3 integration with BenchAI.
 
-**MarunochiAI → BenchAI (delegates):**
-- Vision tasks → BenchAI Qwen2-VL
-- Web search → BenchAI SearXNG
-- Long-term memory → BenchAI SQLite/ChromaDB
+### Automatic Task Routing
 
-**BenchAI → MarunochiAI (routes):**
-- All coding tasks → MarunochiAI (1-5s local)
-- Code review → MarunochiAI AST analysis
+BenchAI routes coding tasks to MarunochiAI based on semantic classification:
+
+**BenchAI → MarunochiAI** (automatic delegation):
+- Code search queries → MarunochiAI hybrid search (vector + BM25 + graph)
+- Code completion/review → MarunochiAI Qwen2.5-Coder
+- Debugging assistance → MarunochiAI AST analysis
 - Refactoring → MarunochiAI multi-file editor
+- Test generation → MarunochiAI with codebase context
+
+**MarunochiAI → BenchAI** (automatic reporting):
+- Task completion metrics (duration, success rate, results)
+- Coding experiences and patterns
+- Knowledge sharing via Zettelkasten
+
+### Bidirectional Learning
+
+- **MarunochiAI learns from BenchAI**: Receives successful experiences from other agents
+- **BenchAI learns from MarunochiAI**: Stores coding patterns in collective memory
+- **Automatic sync**: Experience/knowledge sharing happens transparently
+
+### Quick Start
+
+```bash
+# Terminal 1: Start BenchAI (orchestrator)
+cd ~/BenchAI/benchai
+python3 -m benchai.api.server
+
+# Terminal 2: Start MarunochiAI (code expert)
+marunochithe server
+
+# Terminal 3: Use BenchAI - it auto-routes coding tasks to MarunochiAI
+curl -X POST http://localhost:8085/v1/learning/a2a/route \
+  -H "Content-Type: application/json" \
+  -d '{"query": "find authentication functions in my codebase"}'
+```
+
+See [A2A Integration Guide](docs/A2A-INTEGRATION.md) for complete documentation.
 
 ## 📊 Performance Targets
 
