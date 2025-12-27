@@ -3,7 +3,7 @@ name = "marunochithe"
 version = "0.1.0"
 description = "The most powerful self-hosted coding assistant"
 authors = [{name = "Cesar", email = "cesar@marunochithe.ai"}]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     # Core framework
     "fastapi>=0.109.0",
