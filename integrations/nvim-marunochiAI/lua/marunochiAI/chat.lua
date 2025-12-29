@@ -1,4 +1,4 @@
----MarunochiAI Chat - Full AI assistant experience for Neovim
+---MarunochiAI Chat Panel - Unified chat interface
 ---@class MarunochiChat
 local M = {}
 
@@ -6,127 +6,108 @@ local api = require("marunochiAI.api")
 
 -- State
 M.history = {}
-M.chat_bufnr = nil
-M.chat_winnr = nil
-M.input_bufnr = nil
-M.input_winnr = nil
+M.bufnr = nil
+M.winnr = nil
 M.is_processing = false
 
 -- Configuration
 local config = {
   width = 80,
-  split_direction = "right", -- "right", "left", "below", "above"
+  position = "right", -- "right", "left", "float"
 }
 
----Initialize chat UI
-function M.setup_chat_ui()
-  -- Create chat buffer
-  M.chat_bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(M.chat_bufnr, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(M.chat_bufnr, "filetype", "markdown")
-  vim.api.nvim_buf_set_option(M.chat_bufnr, "modifiable", true)
-  vim.api.nvim_buf_set_name(M.chat_bufnr, "[MarunochiAI Chat]")
-
-  -- Create input buffer
-  M.input_bufnr = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_option(M.input_bufnr, "buftype", "nofile")
-  vim.api.nvim_buf_set_option(M.input_bufnr, "filetype", "markdown")
-  vim.api.nvim_buf_set_name(M.input_bufnr, "[MarunochiAI Input]")
+---Create chat buffer
+local function create_buffer()
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+  vim.api.nvim_buf_set_option(buf, "swapfile", false)
+  vim.api.nvim_buf_set_name(buf, "MarunochiAI")
+  return buf
 end
 
----Open chat in a split
----@param initial_prompt string|nil Initial message to send
-function M.open_chat(initial_prompt)
-  -- If chat is already open, focus it
-  if M.chat_winnr and vim.api.nvim_win_is_valid(M.chat_winnr) then
-    vim.api.nvim_set_current_win(M.chat_winnr)
-    if initial_prompt and initial_prompt ~= "" then
-      M.send_message(initial_prompt)
-    end
+---Render chat content
+local function render()
+  if not M.bufnr or not vim.api.nvim_buf_is_valid(M.bufnr) then
     return
   end
 
-  -- Create buffers if needed
-  if not M.chat_bufnr or not vim.api.nvim_buf_is_valid(M.chat_bufnr) then
-    M.setup_chat_ui()
-  end
+  vim.api.nvim_buf_set_option(M.bufnr, "modifiable", true)
 
-  -- Open chat split
-  local cmd = config.split_direction == "right" and "botright vsplit"
-    or config.split_direction == "left" and "topleft vsplit"
-    or config.split_direction == "below" and "botright split"
-    or "topleft split"
+  local lines = {
+    "# MarunochiAI Chat",
+    "",
+  }
 
-  vim.cmd(cmd)
-  M.chat_winnr = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(M.chat_winnr, M.chat_bufnr)
-  vim.api.nvim_win_set_width(M.chat_winnr, config.width)
-
-  -- Set window options
-  vim.wo[M.chat_winnr].wrap = true
-  vim.wo[M.chat_winnr].linebreak = true
-  vim.wo[M.chat_winnr].number = false
-  vim.wo[M.chat_winnr].relativenumber = false
-  vim.wo[M.chat_winnr].signcolumn = "no"
-  vim.wo[M.chat_winnr].cursorline = false
-
-  -- Initial welcome content
   if #M.history == 0 then
-    M.render_welcome()
+    -- Welcome message
+    vim.list_extend(lines, {
+      "Local AI coding assistant powered by Qwen2.5-Coder.",
+      "",
+      "**Keybindings:**",
+      "- `i` or `a` — Send message",
+      "- `yc` — Copy code block",
+      "- `<C-y>` — Insert code to editor",
+      "- `C` — Clear history",
+      "- `q` — Close",
+      "",
+      "---",
+      "",
+    })
   else
-    M.render_chat()
+    -- Chat history
+    for _, entry in ipairs(M.history) do
+      if entry.role == "user" then
+        table.insert(lines, "**You:**")
+      else
+        table.insert(lines, "**MarunochiAI:**")
+      end
+      for _, line in ipairs(vim.split(entry.content, "\n")) do
+        table.insert(lines, line)
+      end
+      table.insert(lines, "")
+      table.insert(lines, "---")
+      table.insert(lines, "")
+    end
   end
 
-  -- Set up keymaps
-  M.setup_keymaps()
-
-  -- Focus input at bottom
-  vim.cmd("normal! G")
-
-  -- Send initial prompt if provided
-  if initial_prompt and initial_prompt ~= "" then
-    vim.schedule(function()
-      M.send_message(initial_prompt)
-    end)
-  end
-end
-
----Close chat
-function M.close_chat()
-  if M.chat_winnr and vim.api.nvim_win_is_valid(M.chat_winnr) then
-    vim.api.nvim_win_close(M.chat_winnr, true)
-  end
-  M.chat_winnr = nil
-end
-
----Toggle chat
-function M.toggle_chat()
-  if M.chat_winnr and vim.api.nvim_win_is_valid(M.chat_winnr) then
-    M.close_chat()
+  -- Input prompt
+  if M.is_processing then
+    table.insert(lines, "*Thinking...*")
   else
-    M.open_chat()
+    table.insert(lines, "_Press `i` to send a message_")
+  end
+
+  vim.api.nvim_buf_set_lines(M.bufnr, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(M.bufnr, "modifiable", false)
+
+  -- Scroll to bottom
+  if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
+    local count = vim.api.nvim_buf_line_count(M.bufnr)
+    vim.api.nvim_win_set_cursor(M.winnr, { count, 0 })
   end
 end
 
----Set up keymaps for chat buffer
-function M.setup_keymaps()
-  local opts = { noremap = true, silent = true, buffer = M.chat_bufnr }
+---Setup keymaps for chat buffer
+local function setup_keymaps()
+  local opts = { noremap = true, silent = true, buffer = M.bufnr }
 
-  -- Close chat
-  vim.keymap.set("n", "q", M.close_chat, opts)
-  vim.keymap.set("n", "<Esc>", M.close_chat, opts)
+  -- Close
+  vim.keymap.set("n", "q", M.close, opts)
+  vim.keymap.set("n", "<Esc>", M.close, opts)
 
-  -- Send message (from input at bottom)
-  vim.keymap.set("n", "<CR>", M.prompt_and_send, opts)
-  vim.keymap.set("n", "i", M.prompt_and_send, opts)
+  -- Send message
+  vim.keymap.set("n", "i", M.prompt_input, opts)
+  vim.keymap.set("n", "a", M.prompt_input, opts)
+  vim.keymap.set("n", "<CR>", M.prompt_input, opts)
 
   -- Clear history
-  vim.keymap.set("n", "C", M.clear_history, opts)
+  vim.keymap.set("n", "C", M.clear, opts)
 
-  -- Copy code block under cursor
+  -- Copy code block
   vim.keymap.set("n", "yc", M.copy_code_block, opts)
 
-  -- Insert code block into previous buffer
+  -- Insert code to editor
   vim.keymap.set("n", "<C-y>", M.insert_code_block, opts)
 
   -- Scroll
@@ -134,386 +115,306 @@ function M.setup_keymaps()
   vim.keymap.set("n", "k", "gk", opts)
 end
 
----Render welcome message
-function M.render_welcome()
-  local lines = {
-    "╭─────────────────────────────────────────────╮",
-    "│             MarunochiAI Chat                │",
-    "│        Your Local AI Coding Assistant       │",
-    "╰─────────────────────────────────────────────╯",
-    "",
-    "Welcome! I'm MarunochiAI, running locally on your machine.",
-    "I use Qwen2.5-Coder for fast, private code assistance.",
-    "",
-    "╭─ Quick Actions ────────────────────────────╮",
-    "│  i / <CR>  - Ask a question                │",
-    "│  yc        - Copy code block under cursor  │",
-    "│  <C-y>     - Insert code into editor       │",
-    "│  C         - Clear chat history            │",
-    "│  q / <Esc> - Close chat                    │",
-    "╰────────────────────────────────────────────╯",
-    "",
-    "Try asking:",
-    "  • 'Explain the selected code'",
-    "  • 'How do I implement binary search?'",
-    "  • 'Refactor this to be more efficient'",
-    "",
-    "─────────────────────────────────────────────",
-    "",
-  }
-
-  vim.api.nvim_buf_set_lines(M.chat_bufnr, 0, -1, false, lines)
-end
-
----Render full chat history
-function M.render_chat()
-  local lines = {
-    "╭─────────────────────────────────────────────╮",
-    "│             MarunochiAI Chat                │",
-    "╰─────────────────────────────────────────────╯",
-    "",
-  }
-
-  for _, entry in ipairs(M.history) do
-    if entry.role == "user" then
-      table.insert(lines, "┌─ You ──────────────────────────────────────")
-      for _, line in ipairs(vim.split(entry.content, "\n")) do
-        table.insert(lines, "│ " .. line)
-      end
-      table.insert(lines, "└────────────────────────────────────────────")
-      table.insert(lines, "")
-    else
-      table.insert(lines, "┌─ MarunochiAI ──────────────────────────────")
-      for _, line in ipairs(vim.split(entry.content, "\n")) do
-        table.insert(lines, "│ " .. line)
-      end
-      table.insert(lines, "└────────────────────────────────────────────")
-      table.insert(lines, "")
+---Open chat panel
+---@param initial_message string|nil Initial message to send
+function M.open(initial_message)
+  -- Focus if already open
+  if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
+    vim.api.nvim_set_current_win(M.winnr)
+    if initial_message and initial_message ~= "" then
+      M.send(initial_message)
     end
-  end
-
-  table.insert(lines, "─────────────────────────────────────────────")
-  table.insert(lines, "Press 'i' or <CR> to ask a question...")
-
-  vim.api.nvim_buf_set_lines(M.chat_bufnr, 0, -1, false, lines)
-
-  -- Scroll to bottom
-  if M.chat_winnr and vim.api.nvim_win_is_valid(M.chat_winnr) then
-    local line_count = vim.api.nvim_buf_line_count(M.chat_bufnr)
-    vim.api.nvim_win_set_cursor(M.chat_winnr, { line_count, 0 })
-  end
-end
-
----Prompt user for input and send
-function M.prompt_and_send()
-  if M.is_processing then
-    vim.notify("MarunochiAI is still thinking...", vim.log.levels.WARN)
     return
   end
 
-  -- Get context from previous window
-  local context = M.get_context()
+  -- Create buffer
+  if not M.bufnr or not vim.api.nvim_buf_is_valid(M.bufnr) then
+    M.bufnr = create_buffer()
+  end
 
-  vim.ui.input({
-    prompt = "Ask MarunochiAI: ",
-    default = "",
-  }, function(input)
+  -- Open split
+  if config.position == "float" then
+    local width = math.min(config.width, vim.o.columns - 10)
+    local height = math.min(30, vim.o.lines - 10)
+    M.winnr = vim.api.nvim_open_win(M.bufnr, true, {
+      relative = "editor",
+      row = math.floor((vim.o.lines - height) / 2),
+      col = math.floor((vim.o.columns - width) / 2),
+      width = width,
+      height = height,
+      style = "minimal",
+      border = "rounded",
+    })
+  else
+    local cmd = config.position == "right" and "botright vsplit" or "topleft vsplit"
+    vim.cmd(cmd)
+    M.winnr = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(M.winnr, M.bufnr)
+    vim.api.nvim_win_set_width(M.winnr, config.width)
+  end
+
+  -- Window options
+  vim.wo[M.winnr].wrap = true
+  vim.wo[M.winnr].linebreak = true
+  vim.wo[M.winnr].number = false
+  vim.wo[M.winnr].relativenumber = false
+  vim.wo[M.winnr].signcolumn = "no"
+  vim.wo[M.winnr].spell = false
+  vim.wo[M.winnr].conceallevel = 2
+
+  setup_keymaps()
+  render()
+
+  if initial_message and initial_message ~= "" then
+    vim.schedule(function()
+      M.send(initial_message)
+    end)
+  end
+end
+
+---Alias for open
+function M.open_chat(msg)
+  M.open(msg)
+end
+
+---Close chat panel
+function M.close()
+  if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
+    vim.api.nvim_win_close(M.winnr, true)
+  end
+  M.winnr = nil
+end
+
+---Toggle chat panel
+function M.toggle()
+  if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
+    M.close()
+  else
+    M.open()
+  end
+end
+
+---Alias for toggle
+function M.toggle_chat()
+  M.toggle()
+end
+
+---Prompt for input
+function M.prompt_input()
+  if M.is_processing then
+    vim.notify("MarunochiAI is thinking...", vim.log.levels.WARN)
+    return
+  end
+
+  vim.ui.input({ prompt = "Message: " }, function(input)
     if input and input ~= "" then
-      M.send_message(input, context)
+      M.send(input)
     end
   end)
 end
 
----Get context from the editor
----@return table Context information
-function M.get_context()
-  local context = {}
-
-  -- Find a non-chat window to get context from
-  for _, winnr in ipairs(vim.api.nvim_list_wins()) do
-    local bufnr = vim.api.nvim_win_get_buf(winnr)
-    local name = vim.api.nvim_buf_get_name(bufnr)
-    if not name:match("MarunochiAI") then
-      context.filename = name
-      context.filetype = vim.api.nvim_buf_get_option(bufnr, "filetype")
-
-      -- Get visual selection if any
-      local mode = vim.fn.mode()
-      if mode == "v" or mode == "V" then
-        local start_line = vim.fn.line("'<")
-        local end_line = vim.fn.line("'>")
-        local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-        context.selection = table.concat(lines, "\n")
-      end
-      break
-    end
-  end
-
-  return context
-end
-
----Send message to MarunochiAI
----@param message string User message
----@param context table|nil Context information
-function M.send_message(message, context)
+---Send message to AI
+---@param message string Message to send
+function M.send(message)
   if M.is_processing then
     return
   end
 
   M.is_processing = true
 
-  -- Build full message with context
+  -- Get context from editor
+  local context = M.get_editor_context()
   local full_message = message
-  if context and context.selection then
+
+  if context.selection then
     full_message = string.format(
-      "[Selected code from %s]\n```%s\n%s\n```\n\n%s",
-      context.filename or "unknown",
+      "[Code from %s]\n```%s\n%s\n```\n\n%s",
+      context.filename or "buffer",
       context.filetype or "",
       context.selection,
       message
     )
-  elseif context and context.filename then
-    full_message = string.format("[Working on: %s]\n\n%s", context.filename, message)
   end
 
   -- Add to history
   table.insert(M.history, { role = "user", content = full_message })
+  render()
 
-  -- Update UI to show user message
-  M.render_chat()
-
-  -- Add loading indicator
-  local loading_lines = {
-    "┌─ MarunochiAI ──────────────────────────────",
-    "│ Thinking...",
-    "└────────────────────────────────────────────",
-  }
-  local line_count = vim.api.nvim_buf_line_count(M.chat_bufnr)
-  vim.api.nvim_buf_set_lines(M.chat_bufnr, line_count - 2, line_count, false, loading_lines)
-
-  -- Send request
-  local response_text = ""
+  -- Stream response
+  local response = ""
 
   api.chat_completion_stream(M.history, function(token)
-    response_text = response_text .. token
-
-    -- Update UI with streaming response
+    response = response .. token
+    -- Update display periodically
     vim.schedule(function()
-      if not M.chat_bufnr or not vim.api.nvim_buf_is_valid(M.chat_bufnr) then
-        return
-      end
-
-      local response_lines = { "┌─ MarunochiAI ──────────────────────────────" }
-      for _, line in ipairs(vim.split(response_text, "\n")) do
-        table.insert(response_lines, "│ " .. line)
-      end
-      table.insert(response_lines, "│ ...")
-      table.insert(response_lines, "└────────────────────────────────────────────")
-
-      local buf_lines = vim.api.nvim_buf_get_lines(M.chat_bufnr, 0, -1, false)
-      -- Find where to insert (remove old loading/response)
-      local insert_pos = #buf_lines - 3
-      for i = #buf_lines, 1, -1 do
-        if buf_lines[i]:match("^┌─ MarunochiAI") then
-          insert_pos = i - 1
-          break
+      if M.bufnr and vim.api.nvim_buf_is_valid(M.bufnr) then
+        vim.api.nvim_buf_set_option(M.bufnr, "modifiable", true)
+        local lines = vim.api.nvim_buf_get_lines(M.bufnr, 0, -1, false)
+        -- Update last section with streaming response
+        local last_sep = #lines
+        for i = #lines, 1, -1 do
+          if lines[i] == "---" then
+            last_sep = i
+            break
+          end
         end
-      end
+        -- Replace from last separator
+        local new_lines = { "---", "", "**MarunochiAI:**" }
+        for _, line in ipairs(vim.split(response, "\n")) do
+          table.insert(new_lines, line)
+        end
+        table.insert(new_lines, "")
+        table.insert(new_lines, "_streaming..._")
+        vim.api.nvim_buf_set_lines(M.bufnr, last_sep - 1, -1, false, new_lines)
+        vim.api.nvim_buf_set_option(M.bufnr, "modifiable", false)
 
-      vim.api.nvim_buf_set_lines(M.chat_bufnr, insert_pos, -1, false, response_lines)
-
-      -- Scroll to bottom
-      if M.chat_winnr and vim.api.nvim_win_is_valid(M.chat_winnr) then
-        local new_count = vim.api.nvim_buf_line_count(M.chat_bufnr)
-        vim.api.nvim_win_set_cursor(M.chat_winnr, { new_count, 0 })
+        -- Scroll
+        if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
+          local count = vim.api.nvim_buf_line_count(M.bufnr)
+          vim.api.nvim_win_set_cursor(M.winnr, { count, 0 })
+        end
       end
     end)
   end, function()
-    -- Completion callback
+    -- Done
     M.is_processing = false
-    table.insert(M.history, { role = "assistant", content = response_text })
-
+    table.insert(M.history, { role = "assistant", content = response })
     vim.schedule(function()
-      M.render_chat()
-      vim.notify("MarunochiAI response complete", vim.log.levels.INFO)
+      render()
     end)
   end)
 end
 
+---Get context from the editor
+---@return table Context
+function M.get_editor_context()
+  local ctx = {}
+
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local name = vim.api.nvim_buf_get_name(buf)
+
+    if not name:match("MarunochiAI") then
+      ctx.filename = vim.fn.fnamemodify(name, ":t")
+      ctx.filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+
+      -- Check for visual selection marks
+      local start_line = vim.fn.line("'<")
+      local end_line = vim.fn.line("'>")
+
+      if start_line > 0 and end_line > 0 and start_line <= end_line then
+        local lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
+        if #lines > 0 then
+          ctx.selection = table.concat(lines, "\n")
+        end
+      end
+      break
+    end
+  end
+
+  return ctx
+end
+
 ---Clear chat history
-function M.clear_history()
+function M.clear()
   M.history = {}
-  vim.notify("Chat history cleared", vim.log.levels.INFO)
-  M.render_welcome()
+  render()
+  vim.notify("Chat cleared", vim.log.levels.INFO)
+end
+
+---Find code block at cursor
+---@return string|nil Code block content
+local function find_code_block_at_cursor()
+  if not M.winnr or not vim.api.nvim_win_is_valid(M.winnr) then
+    return nil
+  end
+
+  local cursor = vim.api.nvim_win_get_cursor(M.winnr)
+  local lines = vim.api.nvim_buf_get_lines(M.bufnr, 0, -1, false)
+
+  local in_block = false
+  local block_start = nil
+  local block_lines = {}
+
+  for i, line in ipairs(lines) do
+    if line:match("^```") then
+      if in_block then
+        -- End of block
+        if cursor[1] >= block_start and cursor[1] <= i then
+          return table.concat(block_lines, "\n")
+        end
+        in_block = false
+        block_lines = {}
+      else
+        -- Start of block
+        in_block = true
+        block_start = i
+      end
+    elseif in_block then
+      table.insert(block_lines, line)
+    end
+  end
+
+  return nil
 end
 
 ---Copy code block under cursor
 function M.copy_code_block()
-  local cursor = vim.api.nvim_win_get_cursor(M.chat_winnr)
-  local lines = vim.api.nvim_buf_get_lines(M.chat_bufnr, 0, -1, false)
-
-  -- Find code block boundaries
-  local in_code_block = false
-  local code_start = nil
-  local code_lines = {}
-
-  for i, line in ipairs(lines) do
-    if line:match("^│ ```") then
-      if in_code_block then
-        -- End of code block
-        if cursor[1] >= code_start and cursor[1] <= i then
-          -- Cursor is in this block
-          vim.fn.setreg("+", table.concat(code_lines, "\n"))
-          vim.notify("Code copied to clipboard", vim.log.levels.INFO)
-          return
-        end
-        in_code_block = false
-        code_lines = {}
-      else
-        -- Start of code block
-        in_code_block = true
-        code_start = i
-      end
-    elseif in_code_block then
-      -- Remove the │ prefix
-      local clean_line = line:gsub("^│ ", "")
-      table.insert(code_lines, clean_line)
-    end
+  local code = find_code_block_at_cursor()
+  if code then
+    vim.fn.setreg("+", code)
+    vim.notify("Code copied", vim.log.levels.INFO)
+  else
+    vim.notify("No code block at cursor", vim.log.levels.WARN)
   end
-
-  vim.notify("No code block found at cursor", vim.log.levels.WARN)
 end
 
----Insert code block into previous buffer
+---Insert code block into editor
 function M.insert_code_block()
-  local cursor = vim.api.nvim_win_get_cursor(M.chat_winnr)
-  local lines = vim.api.nvim_buf_get_lines(M.chat_bufnr, 0, -1, false)
-
-  -- Find code block under cursor (same logic as copy)
-  local in_code_block = false
-  local code_start = nil
-  local code_lines = {}
-
-  for i, line in ipairs(lines) do
-    if line:match("^│ ```") then
-      if in_code_block then
-        if cursor[1] >= code_start and cursor[1] <= i then
-          -- Found the block, now insert it
-          M.close_chat()
-
-          -- Insert at cursor in current buffer
-          local current_line = vim.api.nvim_win_get_cursor(0)[1]
-          vim.api.nvim_buf_set_lines(0, current_line, current_line, false, code_lines)
-          vim.notify("Code inserted", vim.log.levels.INFO)
-          return
-        end
-        in_code_block = false
-        code_lines = {}
-      else
-        in_code_block = true
-        code_start = i
-      end
-    elseif in_code_block then
-      local clean_line = line:gsub("^│ ", "")
-      table.insert(code_lines, clean_line)
-    end
-  end
-
-  vim.notify("No code block found at cursor", vim.log.levels.WARN)
-end
-
----Explain selected code
-function M.explain_selection()
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
-  local bufnr = vim.api.nvim_get_current_buf()
-  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-  local code = table.concat(lines, "\n")
-  local filetype = vim.api.nvim_buf_get_option(bufnr, "filetype")
-
-  local prompt = string.format("Explain this %s code in detail:\n\n```%s\n%s\n```", filetype, filetype, code)
-
-  M.open_chat(prompt)
-end
-
----Refactor selected code
-function M.refactor_selection()
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
-  local bufnr = vim.api.nvim_get_current_buf()
-  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-  local code = table.concat(lines, "\n")
-  local filetype = vim.api.nvim_buf_get_option(bufnr, "filetype")
-
-  local prompt = string.format(
-    "Refactor this %s code to improve readability, performance, and best practices:\n\n```%s\n%s\n```",
-    filetype,
-    filetype,
-    code
-  )
-
-  M.open_chat(prompt)
-end
-
----Debug selected code
-function M.debug_selection()
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
-  local bufnr = vim.api.nvim_get_current_buf()
-  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-  local code = table.concat(lines, "\n")
-  local filetype = vim.api.nvim_buf_get_option(bufnr, "filetype")
-
-  local prompt = string.format(
-    "Debug this %s code. Identify potential issues, bugs, or improvements:\n\n```%s\n%s\n```",
-    filetype,
-    filetype,
-    code
-  )
-
-  M.open_chat(prompt)
-end
-
----Generate tests for selected code
-function M.generate_tests()
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
-  local bufnr = vim.api.nvim_get_current_buf()
-  local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-  local code = table.concat(lines, "\n")
-  local filetype = vim.api.nvim_buf_get_option(bufnr, "filetype")
-
-  local prompt = string.format(
-    "Generate comprehensive unit tests for this %s code:\n\n```%s\n%s\n```",
-    filetype,
-    filetype,
-    code
-  )
-
-  M.open_chat(prompt)
-end
-
----Apply code suggestion (replace selection)
----@param suggestion string Code suggestion
-function M.apply_suggestion(suggestion)
-  -- Extract code blocks from markdown
-  local code_blocks = {}
-  for block in suggestion:gmatch("```%w*\n(.-)\n```") do
-    table.insert(code_blocks, block)
-  end
-
-  if #code_blocks == 0 then
-    vim.notify("No code blocks found in suggestion", vim.log.levels.WARN)
+  local code = find_code_block_at_cursor()
+  if not code then
+    vim.notify("No code block at cursor", vim.log.levels.WARN)
     return
   end
 
-  -- Replace current selection with first code block
-  local lines = vim.split(code_blocks[1], "\n")
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
+  -- Find editor window
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local name = vim.api.nvim_buf_get_name(buf)
 
-  vim.api.nvim_buf_set_lines(0, start_line - 1, end_line, false, lines)
-  vim.notify("Applied suggestion", vim.log.levels.INFO)
+    if not name:match("MarunochiAI") then
+      -- Switch to that window and insert
+      vim.api.nvim_set_current_win(win)
+      local cursor = vim.api.nvim_win_get_cursor(win)
+      local lines = vim.split(code, "\n")
+      vim.api.nvim_buf_set_lines(buf, cursor[1], cursor[1], false, lines)
+      vim.notify("Code inserted", vim.log.levels.INFO)
+      return
+    end
+  end
+
+  vim.notify("No editor window found", vim.log.levels.WARN)
+end
+
+-- Legacy aliases for backwards compatibility
+M.explain_selection = function()
+  local inline = require("marunochiAI.inline")
+  inline.quick_action("explain")
+end
+
+M.refactor_selection = function()
+  local inline = require("marunochiAI.inline")
+  inline.quick_action("refactor")
+end
+
+M.debug_selection = function()
+  local inline = require("marunochiAI.inline")
+  inline.quick_action("fix")
+end
+
+M.generate_tests = function()
+  local inline = require("marunochiAI.inline")
+  inline.quick_action("test")
 end
 
 return M

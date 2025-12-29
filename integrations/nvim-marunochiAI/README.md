@@ -1,256 +1,259 @@
 # nvim-marunochiAI
 
-The most powerful Neovim plugin for AI-powered coding assistance with semantic code understanding.
+Cursor/Copilot-style AI coding assistant for Neovim, powered by local LLMs.
 
-## ✨ Features
+## Features
 
-- **🔍 Semantic Code Search**: Search your entire codebase using natural language
-- **🤖 AI-Powered Completion**: Context-aware code completions via nvim-cmp
-- **💬 Inline Chat**: Chat with MarunochiAI directly in Neovim
-- **📖 Code Explanation**: Explain any code selection
-- **🔧 Code Refactoring**: AI-powered refactoring suggestions
-- **🐛 Debug Assistance**: Identify potential issues in code
-- **📡 Real-time Indexing**: Automatic codebase indexing with file watching
-- **🎨 Beautiful UI**: Telescope integration for search results
+- **Inline Edit** (`Ctrl+I`) - Edit selection or generate code at cursor (like Cursor's Cmd+K)
+- **Ghost Text** - Copilot-style completions as you type (Tab to accept)
+- **Chat Panel** (`Ctrl+L`) - Sidebar chat with streaming responses
+- **Quick Actions** - Explain, refactor, fix, document, test selection
+- **Semantic Search** - Find code by natural language
 
-## 📦 Installation
+## Installation
 
-### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
+### LazyVim
+
+Add to `lua/plugins/marunochiAI.lua`:
+
+```lua
+return {
+  {
+    dir = "~/MarunochiAI/integrations/nvim-marunochiAI",
+    name = "marunochiAI",
+    dependencies = {
+      "nvim-telescope/telescope.nvim",  -- Optional: for search UI
+    },
+    config = function()
+      require("marunochiAI").setup({
+        api_url = "http://localhost:8765",
+        ghost_text = true,
+        ghost_debounce = 300,
+      })
+    end,
+    lazy = false,
+  },
+}
+```
+
+### lazy.nvim (Standard)
 
 ```lua
 {
-  "CesarSalcido06/MarunochiAI",
-  dir = "/path/to/MarunochiAI/integrations/nvim-marunochiAI",
-  dependencies = {
-    "nvim-telescope/telescope.nvim",  -- Optional but recommended
-    "hrsh7th/nvim-cmp",                -- Optional for completions
-  },
+  dir = "~/MarunochiAI/integrations/nvim-marunochiAI",
   config = function()
-    require("marunochiAI").setup({
-      api_url = "http://localhost:8765",
-      auto_index = true,
-      search_limit = 10,
-      enable_completion = true,
-      enable_inline_chat = true,
-    })
+    require("marunochiAI").setup()
   end,
 }
 ```
 
-### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
+### packer.nvim
 
 ```lua
 use {
-  "CesarSalcido06/MarunochiAI",
-  opt = { dir = "/path/to/MarunochiAI/integrations/nvim-marunochiAI" },
-  requires = {
-    "nvim-telescope/telescope.nvim",
-    "hrsh7th/nvim-cmp",
-  },
+  '~/MarunochiAI/integrations/nvim-marunochiAI',
   config = function()
-    require("marunochiAI").setup()
+    require('marunochiAI').setup()
   end
 }
 ```
 
-## ⚙️ Configuration
+## Keybindings
+
+### Core (Cursor/Copilot Style)
+
+| Key | Mode | Action |
+|-----|------|--------|
+| `Ctrl+I` | Normal/Visual | **Inline edit** - Edit selection or generate at cursor |
+| `Ctrl+L` | Normal | **Toggle chat** panel |
+| `Tab` | Insert | **Accept** ghost completion |
+| `Ctrl+Right` | Insert | Accept word only |
+| `Ctrl+]` | Insert | Dismiss suggestion |
+| `Ctrl+Space` | Insert | Trigger suggestion manually |
+| `<leader>ag` | Normal | Toggle ghost text on/off |
+
+### Quick Actions (Visual Mode)
+
+| Key | Action |
+|-----|--------|
+| `<leader>ae` | Explain selection |
+| `<leader>ar` | Refactor selection |
+| `<leader>af` | Fix/debug selection |
+| `<leader>ad` | Add documentation |
+| `<leader>at` | Generate tests |
+
+### Chat Panel
+
+| Key | Action |
+|-----|--------|
+| `i` / `a` / `Enter` | Send message |
+| `yc` | Copy code block |
+| `Ctrl+y` | Insert code to editor |
+| `C` | Clear history |
+| `q` / `Esc` | Close chat |
+
+## Commands
+
+```vim
+:MarunochiChat [message]  " Toggle chat / send message
+:MarunochiEdit            " Inline edit (same as Ctrl+I)
+:MarunochiExplain         " Explain selected code
+:MarunochiRefactor        " Refactor selection
+:MarunochiDebug           " Fix/debug selection
+:MarunochiTests           " Generate tests
+:MarunochiSearch [query]  " Semantic code search
+:MarunochiIndex [path]    " Index codebase
+:MarunochiGhost           " Toggle ghost text
+```
+
+## Configuration
 
 ```lua
 require("marunochiAI").setup({
-  -- API Configuration
-  api_url = "http://localhost:8765",  -- MarunochiAI server URL
-  api_key = nil,                       -- Optional API key
-  model = nil,                         -- Auto-select (7b/14b)
+  -- API
+  api_url = "http://localhost:8765",
+  api_key = nil,        -- Optional
+  model = nil,          -- nil=auto, "7b", "14b"
 
   -- Features
-  auto_index = true,                   -- Auto-index workspace on startup
-  search_limit = 5,                    -- Default search result limit
-  enable_completion = true,            -- Enable AI completions
-  enable_inline_chat = true,           -- Enable chat features
+  ghost_text = true,    -- Copilot-style completions
+  ghost_debounce = 300, -- Debounce ms
+  auto_index = false,   -- Index on startup
+
+  -- Keymaps (set to false to disable any)
+  keymaps = {
+    inline_edit = "<C-i>",       -- Ctrl+I
+    toggle_chat = "<C-l>",       -- Ctrl+L
+    accept_completion = "<Tab>",
+    accept_word = "<C-Right>",
+    dismiss = "<C-]>",
+    trigger = "<C-Space>",
+    explain = "<leader>ae",
+    refactor = "<leader>ar",
+    fix = "<leader>af",
+    document = "<leader>ad",
+    test = "<leader>at",
+  },
 })
 ```
 
-## 🚀 Commands
+## Workflow
 
-### Code Search
+### 1. Ghost Text (Copilot-style)
 
-```vim
-:MarunochiIndex [path]           " Index codebase (defaults to cwd)
-:MarunochiSearch <query>         " Search codebase semantically
-:MarunochiStats                  " Show indexing statistics
+As you type, completions appear as gray ghost text:
+
+```
+function calculate|  -- cursor here
+         _total(items)  -- ghost suggestion
 ```
 
-### Chat & Code Assistance
+Press **Tab** to accept, **Ctrl+]** to dismiss.
 
-```vim
-:MarunochiChat [message]         " Open chat window
-:MarunochiExplain                " Explain selected code
-:MarunochiRefactor               " Refactor selected code
-:MarunochiDebug                  " Debug selected code
+### 2. Inline Edit (Cursor-style)
+
+Select code and press **Ctrl+I**:
+
+```
+1. Select code (or cursor on line)
+2. Press Ctrl+I
+3. Type instruction: "add error handling"
+4. Accept/Preview/Cancel
 ```
 
-### Health Check
+### 3. Chat Panel
 
-```vim
-:MarunochiHealth                 " Check server health
+Press **Ctrl+L** to open chat:
+
+```
+# MarunochiAI Chat
+
+**You:**
+How do I implement binary search?
+
+**MarunochiAI:**
+Here's an efficient binary search...
 ```
 
-## 🔥 Usage Examples
+### 4. Quick Actions
 
-### Semantic Search with Telescope
+Select code in visual mode, then:
+- `<leader>ae` - Explain what it does
+- `<leader>ar` - Refactor it
+- `<leader>af` - Fix bugs
+- `<leader>ad` - Add docs
+- `<leader>at` - Generate tests
 
-```vim
-" Search for authentication-related code
-:MarunochiSearch user authentication function
-
-" Results appear in Telescope picker with:
-" - Similarity scores
-" - File paths and line numbers
-" - Syntax-highlighted previews
-" - Jump to code with <CR>
-```
-
-### AI-Powered Completions
-
-MarunochiAI automatically provides completions when typing if `enable_completion = true`:
-
-```lua
--- Type: function calculate
--- MarunochiAI suggests:
-function calculate_total(items)
-  local sum = 0
-  for _, item in ipairs(items) do
-    sum = sum + item.price
-  end
-  return sum
-end
-```
-
-### Code Explanation
-
-```vim
-" Select code in visual mode
-:'<,'>MarunochiExplain
-
-" Opens chat window with detailed explanation
-```
-
-### Inline Chat
-
-```vim
-:MarunochiChat How do I implement a binary search?
-
-" Interactive chat window opens with streaming response
-" Press <CR> to continue conversation
-" Press q to close
-```
-
-## 🎯 Keybindings (Recommended)
-
-Add these to your Neovim config:
-
-```lua
-vim.keymap.set('n', '<leader>ms', ':MarunochiSearch ', { desc = 'Search codebase' })
-vim.keymap.set('n', '<leader>mi', ':MarunochiIndex<CR>', { desc = 'Index codebase' })
-vim.keymap.set('n', '<leader>mc', ':MarunochiChat<CR>', { desc = 'Open chat' })
-vim.keymap.set('v', '<leader>me', ':MarunochiExplain<CR>', { desc = 'Explain code' })
-vim.keymap.set('v', '<leader>mr', ':MarunochiRefactor<CR>', { desc = 'Refactor code' })
-vim.keymap.set('v', '<leader>md', ':MarunochiDebug<CR>', { desc = 'Debug code' })
-```
-
-## 🔧 Requirements
+## Requirements
 
 - Neovim >= 0.8.0
-- `curl` command available
-- MarunochiAI server running (`marunochithe server`)
-- **Optional**:
-  - [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) - For beautiful search UI
-  - [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) - For AI completions
+- MarunochiAI server running
+- `curl` (for HTTP requests)
 
-## 🏗️ Architecture
+## Server Setup
+
+```bash
+# Install
+cd ~/MarunochiAI
+pip install -e .
+
+# Download model
+ollama pull qwen2.5-coder:7b
+
+# Start server
+marunochithe server
+```
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│      Neovim (nvim-marunochiAI)      │
-│  ┌────────┬─────────┬────────────┐  │
-│  │ Search │ Chat    │ Completion │  │
-│  └───┬────┴────┬────┴──────┬─────┘  │
-│      │         │           │        │
-│      └─────────┴───────────┘        │
-│              API Client             │
+│     Neovim (nvim-marunochiAI)       │
+│  ┌────────┬────────┬─────────────┐  │
+│  │ Ghost  │ Inline │    Chat     │  │
+│  │  Text  │  Edit  │   Panel     │  │
+│  └────────┴────────┴─────────────┘  │
+│           API Client (curl)         │
 └──────────────┬──────────────────────┘
                │ HTTP/REST
 ┌──────────────▼──────────────────────┐
-│     MarunochiAI Server :8765        │
-│  ┌──────────────────────────────┐   │
-│  │  Hybrid Search (RRF Fusion)  │   │
-│  │  ChromaDB + SQLite FTS5      │   │
-│  └──────────────────────────────┘   │
+│    MarunochiAI Server :8765         │
 │  ┌──────────────────────────────┐   │
 │  │  Ollama (Qwen2.5-Coder)      │   │
-│  │  7B/14B Auto-Routing         │   │
+│  │  7B fast / 14B powerful      │   │
 │  └──────────────────────────────┘   │
 └─────────────────────────────────────┘
 ```
 
-## 🤝 Integration with BenchAI & DottscavisAI
+## Troubleshooting
 
-MarunochiAI works seamlessly as part of a multi-agent system:
-
-- **BenchAI**: Routes complex tasks to MarunochiAI for code understanding
-- **DottscavisAI**: Handles creative/multimedia tasks
-- **MarunochiAI**: Specializes in code analysis and generation
-
-The plugin automatically benefits from this distributed intelligence when connected to BenchAI.
-
-## 📊 Performance
-
-- **Search latency**: <200ms (hybrid mode)
-- **Indexing**: ~45s for 10K files
-- **Completion**: <500ms per suggestion
-- **Memory**: ~100MB for indexed codebase
-
-## 🐛 Troubleshooting
-
-### Server not responding
-
+### Ghost text not appearing
 ```vim
-:MarunochiHealth
-" Check if server is running: marunochithe server
+:MarunochiGhost  " Check if enabled
+" Ensure server is running: marunochithe server
 ```
 
-### No search results
-
-```vim
-:MarunochiIndex
-" Re-index current workspace
-```
-
-### Completions not working
-
-Ensure nvim-cmp is installed and MarunochiAI completion source is enabled:
-
+### Completions slow
 ```lua
-require('cmp').setup({
-  sources = {
-    { name = 'marunochiAI' },
-    -- other sources...
-  }
+-- Increase debounce
+require("marunochiAI").setup({
+  ghost_debounce = 500,  -- 500ms
 })
 ```
 
-## 📝 License
+### Server not responding
+```bash
+# Check server
+curl http://localhost:8765/health
 
-MIT License - See main MarunochiAI repository
+# Start server
+marunochithe server
+```
 
-## 🙏 Credits
+## License
 
-Built with:
-- [Neovim](https://neovim.io/)
-- [Telescope](https://github.com/nvim-telescope/telescope.nvim)
-- [nvim-cmp](https://github.com/hrsh7th/nvim-cmp)
-- [MarunochiAI](https://github.com/CesarSalcido06/MarunochiAI)
+MIT
 
 ---
 
-**Made with ❤️ by the MarunochiAI team**
+**Local AI, private, fast, free.**
