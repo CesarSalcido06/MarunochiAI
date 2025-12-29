@@ -232,10 +232,13 @@ class InferenceEngine:
         """
         try:
             models_response = await self.client.list()
-            models = models_response.get("models", [])
-
-            # Check if our models are available
-            model_names = [m["name"] for m in models]
+            # Handle both new ListResponse object and legacy dict format
+            if hasattr(models_response, 'models'):
+                models = models_response.models
+                model_names = [m.model for m in models]
+            else:
+                models = models_response.get("models", [])
+                model_names = [m["name"] for m in models]
 
             has_7b = ModelSize.FAST in model_names
             has_14b = ModelSize.POWERFUL in model_names

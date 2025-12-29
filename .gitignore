@@ -83,3 +83,8 @@ checkpoints/
 tmp/
 temp/
 *.tmp
+
+# VS Code Extension builds
+node_modules/
+*.vsix
+out/

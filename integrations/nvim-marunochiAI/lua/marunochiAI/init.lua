@@ -84,6 +84,19 @@ function M.setup(opts)
     desc = "Debug selected code",
   })
 
+  vim.api.nvim_create_user_command("MarunochiTests", function()
+    chat.generate_tests()
+  end, {
+    range = true,
+    desc = "Generate tests for selected code",
+  })
+
+  vim.api.nvim_create_user_command("MarunochiToggle", function()
+    chat.toggle_chat()
+  end, {
+    desc = "Toggle MarunochiAI chat panel",
+  })
+
   -- Setup completion if enabled
   if M.config.enable_completion then
     completion.setup()

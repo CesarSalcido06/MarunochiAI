@@ -1,16 +1,17 @@
 import * as vscode from 'vscode';
 import { MarunochiAPIClient } from './api';
-import { SearchViewProvider } from './searchView';
-import { ChatViewProvider } from './chatView';
-import { MarunochiCompletionProvider } from './completionProvider';
-import { MarunochiCodeActionProvider } from './codeActionProvider';
+import { MarunochiInlineCompletionProvider, CompletionStatusBar } from './inlineCompletionProvider';
+import { InlineChatController, quickEdit } from './inlineChat';
+import { ChatPanelProvider } from './chatPanel';
+// Note: searchView.ts kept for backwards compatibility but not used
 
 let apiClient: MarunochiAPIClient;
-let searchViewProvider: SearchViewProvider;
-let chatViewProvider: ChatViewProvider;
+let statusBar: CompletionStatusBar;
+let inlineChatController: InlineChatController;
+let chatPanelProvider: ChatPanelProvider;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('MarunochiAI extension is now active!');
+    console.log('MarunochiAI extension activating...');
 
     // Initialize API client
     const config = vscode.workspace.getConfiguration('marunochiAI');
@@ -19,361 +20,198 @@ export function activate(context: vscode.ExtensionContext) {
         config.get('apiKey', '')
     );
 
-    // Register views
-    searchViewProvider = new SearchViewProvider(apiClient);
-    chatViewProvider = new ChatViewProvider(apiClient);
+    // Check server health
+    checkServerHealth();
 
+    // Initialize status bar
+    statusBar = new CompletionStatusBar();
+    context.subscriptions.push(statusBar);
+
+    // Initialize inline chat controller
+    inlineChatController = new InlineChatController(apiClient);
+    context.subscriptions.push(inlineChatController);
+
+    // Register Chat Panel (Sidebar)
+    chatPanelProvider = new ChatPanelProvider(context.extensionUri, apiClient);
     context.subscriptions.push(
-        vscode.window.registerTreeDataProvider('marunochiAI.searchView', searchViewProvider),
-        vscode.window.registerWebviewViewProvider('marunochiAI.chatView', chatViewProvider)
+        vscode.window.registerWebviewViewProvider(
+            ChatPanelProvider.viewType,
+            chatPanelProvider,
+            {
+                webviewOptions: {
+                    retainContextWhenHidden: true,
+                },
+            }
+        )
     );
 
-    // Register completion provider
+    // Register inline completion provider (ghost text)
     if (config.get('enableCompletion', true)) {
-        const completionProvider = new MarunochiCompletionProvider(apiClient);
+        const inlineProvider = new MarunochiInlineCompletionProvider(apiClient);
         context.subscriptions.push(
-            vscode.languages.registerCompletionItemProvider(
-                { scheme: 'file' },
-                completionProvider,
-                '.', ':', '(', '[', '{', ' '
+            vscode.languages.registerInlineCompletionItemProvider(
+                { pattern: '**/*' }, // All files
+                inlineProvider
             )
         );
     }
 
-    // Register code action provider
-    const codeActionProvider = new MarunochiCodeActionProvider(apiClient);
-    context.subscriptions.push(
-        vscode.languages.registerCodeActionsProvider(
-            { scheme: 'file' },
-            codeActionProvider
-        )
-    );
-
-    // Register commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand('marunochiAI.indexWorkspace', indexWorkspace),
-        vscode.commands.registerCommand('marunochiAI.searchCode', searchCode),
-        vscode.commands.registerCommand('marunochiAI.openChat', openChat),
-        vscode.commands.registerCommand('marunochiAI.explainCode', explainCode),
-        vscode.commands.registerCommand('marunochiAI.refactorCode', refactorCode),
-        vscode.commands.registerCommand('marunochiAI.debugCode', debugCode),
-        vscode.commands.registerCommand('marunochiAI.generateTests', generateTests),
-        vscode.commands.registerCommand('marunochiAI.showStats', showStats)
-    );
-
-    // Auto-index workspace on startup
-    if (config.get('autoIndex', true)) {
-        setTimeout(() => indexWorkspace(true), 2000);
-    }
-
-    vscode.window.showInformationMessage('MarunochiAI is ready!');
-}
-
-async function indexWorkspace(silent: boolean = false) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        vscode.window.showErrorMessage('No workspace folder open');
-        return;
-    }
-
-    const path = workspaceFolder.uri.fsPath;
-
-    if (!silent) {
-        vscode.window.showInformationMessage(`Indexing workspace: ${path}`);
-    }
-
-    try {
-        const result = await apiClient.indexCodebase(path, true);
-
-        const message = `✓ Indexed ${result.total_files} files, ${result.total_chunks} chunks in ${result.duration_ms}ms`;
-        if (!silent) {
-            vscode.window.showInformationMessage(message);
+    // Register commands individually with error handling
+    const registerCommand = (name: string, handler: (...args: unknown[]) => unknown) => {
+        try {
+            const disposable = vscode.commands.registerCommand(name, handler);
+            context.subscriptions.push(disposable);
+            console.log(`MarunochiAI: Registered command ${name}`);
+        } catch (error) {
+            console.error(`MarunochiAI: Failed to register ${name}:`, error);
         }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Failed to index: ${error}`);
-    }
-}
+    };
 
-async function searchCode() {
-    const query = await vscode.window.showInputBox({
-        prompt: 'Search codebase semantically',
-        placeHolder: 'e.g., authentication function',
+    // Toggle completions
+    registerCommand('marunochiAI.toggleCompletion', () => {
+        statusBar.toggle();
+        const enabled = statusBar.isCompletionEnabled();
+        vscode.window.showInformationMessage(
+            `MarunochiAI: Completions ${enabled ? 'enabled' : 'disabled'}`
+        );
     });
 
-    if (!query) {
-        return;
-    }
+    // Open chat panel
+    registerCommand('marunochiAI.openChat', async () => {
+        await vscode.commands.executeCommand('marunochiAI.chatPanel.focus');
+    });
 
-    try {
-        const results = await apiClient.searchCodebase(query, 20);
+    // Send message to chat
+    registerCommand('marunochiAI.askChat', async () => {
+        const message = await vscode.window.showInputBox({
+            prompt: 'Ask MarunochiAI',
+            placeHolder: 'Ask anything about code...',
+        });
+        if (message) {
+            await vscode.commands.executeCommand('marunochiAI.chatPanel.focus');
+            chatPanelProvider.sendMessage(message);
+        }
+    });
 
-        if (results.length === 0) {
-            vscode.window.showInformationMessage('No results found');
+    // Explain selection in chat
+    registerCommand('marunochiAI.explainInChat', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && !editor.selection.isEmpty) {
+            await vscode.commands.executeCommand('marunochiAI.chatPanel.focus');
+            chatPanelProvider.sendMessage('Explain this code in detail');
+        }
+    });
+
+    // Inline chat (Cmd+I)
+    registerCommand('marunochiAI.inlineChat', () => {
+        inlineChatController.startInlineChat();
+    });
+
+    // Quick actions
+    registerCommand('marunochiAI.explain', () => quickEdit(apiClient, 'explain'));
+    registerCommand('marunochiAI.refactor', () => quickEdit(apiClient, 'refactor'));
+    registerCommand('marunochiAI.fix', () => quickEdit(apiClient, 'fix'));
+    registerCommand('marunochiAI.document', () => quickEdit(apiClient, 'document'));
+    registerCommand('marunochiAI.generateTests', () => quickEdit(apiClient, 'test'));
+
+    // Index workspace
+    registerCommand('marunochiAI.indexWorkspace', async () => {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
             return;
         }
 
-        // Update search view
-        searchViewProvider.setResults(results);
-
-        // Show quick pick
-        const items = results.map(r => ({
-            label: `$(file-code) ${r.metadata.name}`,
-            description: `${r.filepath}:${r.metadata.line_range[0]}`,
-            detail: `Similarity: ${r.similarity.toFixed(3)} | ${r.metadata.chunk_type}`,
-            result: r,
-        }));
-
-        const selected = await vscode.window.showQuickPick(items, {
-            placeHolder: `Found ${results.length} results`,
-        });
-
-        if (selected) {
-            const uri = vscode.Uri.file(selected.result.filepath);
-            const document = await vscode.workspace.openTextDocument(uri);
-            const editor = await vscode.window.showTextDocument(document);
-
-            const line = selected.result.metadata.line_range[0] - 1;
-            const position = new vscode.Position(line, 0);
-            editor.selection = new vscode.Selection(position, position);
-            editor.revealRange(new vscode.Range(position, position));
-        }
-    } catch (error) {
-        vscode.window.showErrorMessage(`Search failed: ${error}`);
-    }
-}
-
-async function openChat() {
-    const message = await vscode.window.showInputBox({
-        prompt: 'Chat with MarunochiAI',
-        placeHolder: 'Ask anything about coding...',
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'MarunochiAI: Indexing workspace...',
+                cancellable: false,
+            },
+            async () => {
+                try {
+                    const result = await apiClient.indexCodebase(workspaceFolder.uri.fsPath, true);
+                    vscode.window.showInformationMessage(
+                        `Indexed ${result.total_files} files (${result.total_chunks} chunks) in ${result.duration_ms}ms`
+                    );
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Index failed: ${error}`);
+                }
+            }
+        );
     });
 
-    if (!message) {
-        return;
-    }
+    // Search code
+    registerCommand('marunochiAI.searchCode', async () => {
+        const query = await vscode.window.showInputBox({
+            prompt: 'Search codebase with AI',
+            placeHolder: 'e.g., authentication function, error handler',
+        });
 
-    chatViewProvider.sendMessage(message);
-}
+        if (!query) return;
 
-async function explainCode() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Searching...',
+                cancellable: false,
+            },
+            async () => {
+                try {
+                    const results = await apiClient.searchCodebase(query, 10);
 
-    const selection = editor.selection;
-    const code = editor.document.getText(selection);
+                    if (results.length === 0) {
+                        vscode.window.showInformationMessage('No results found');
+                        return;
+                    }
 
-    if (!code) {
-        vscode.window.showWarningMessage('Please select code to explain');
-        return;
-    }
+                    const items = results.map((r) => ({
+                        label: `$(file-code) ${r.metadata.name}`,
+                        description: `${r.filepath}:${r.metadata.line_range[0]}`,
+                        detail: `${(r.similarity * 100).toFixed(0)}% match`,
+                        result: r,
+                    }));
 
-    const prompt = `Explain this code:\n\n\`\`\`${editor.document.languageId}\n${code}\n\`\`\``;
-
-    const response = await apiClient.chatCompletion([
-        { role: 'user', content: prompt },
-    ]);
-
-    showMarkdownPreview('Code Explanation', response.choices[0].message.content);
-}
-
-async function refactorCode() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-
-    const selection = editor.selection;
-    const code = editor.document.getText(selection);
-
-    if (!code) {
-        vscode.window.showWarningMessage('Please select code to refactor');
-        return;
-    }
-
-    const prompt = `Refactor this code to improve readability and performance:\n\n\`\`\`${editor.document.languageId}\n${code}\n\`\`\``;
-
-    vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: 'Refactoring code...',
-            cancellable: false,
-        },
-        async () => {
-            const response = await apiClient.chatCompletion([
-                { role: 'user', content: prompt },
-            ]);
-
-            const suggestion = response.choices[0].message.content;
-
-            // Extract code blocks
-            const codeBlockRegex = /```[\w]*\n([\s\S]*?)\n```/g;
-            const matches = [...suggestion.matchAll(codeBlockRegex)];
-
-            if (matches.length > 0) {
-                const refactoredCode = matches[0][1];
-
-                const action = await vscode.window.showInformationMessage(
-                    'Refactoring suggestion ready',
-                    'Apply',
-                    'Show Preview'
-                );
-
-                if (action === 'Apply') {
-                    editor.edit(editBuilder => {
-                        editBuilder.replace(selection, refactoredCode);
+                    const selected = await vscode.window.showQuickPick(items, {
+                        placeHolder: `Found ${results.length} results`,
                     });
-                } else if (action === 'Show Preview') {
-                    showMarkdownPreview('Refactoring Suggestion', suggestion);
+
+                    if (selected) {
+                        const uri = vscode.Uri.file(selected.result.filepath);
+                        const doc = await vscode.workspace.openTextDocument(uri);
+                        const editor = await vscode.window.showTextDocument(doc);
+
+                        const line = selected.result.metadata.line_range[0] - 1;
+                        const pos = new vscode.Position(line, 0);
+                        editor.selection = new vscode.Selection(pos, pos);
+                        editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+                    }
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Search failed: ${error}`);
                 }
-            } else {
-                showMarkdownPreview('Refactoring Suggestion', suggestion);
             }
-        }
-    );
+        );
+    });
+
+    // Trigger inline completion manually
+    registerCommand('marunochiAI.triggerCompletion', () => {
+        vscode.commands.executeCommand('editor.action.inlineSuggest.trigger');
+    });
+
+    console.log('MarunochiAI extension activated');
 }
 
-async function debugCode() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-
-    const selection = editor.selection;
-    const code = editor.document.getText(selection);
-
-    if (!code) {
-        vscode.window.showWarningMessage('Please select code to debug');
-        return;
-    }
-
-    const prompt = `Debug this code and identify potential issues:\n\n\`\`\`${editor.document.languageId}\n${code}\n\`\`\``;
-
-    const response = await apiClient.chatCompletion([
-        { role: 'user', content: prompt },
-    ]);
-
-    showMarkdownPreview('Debug Analysis', response.choices[0].message.content);
-}
-
-async function generateTests() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        return;
-    }
-
-    const selection = editor.selection;
-    const code = editor.document.getText(selection);
-
-    if (!code) {
-        vscode.window.showWarningMessage('Please select code to generate tests for');
-        return;
-    }
-
-    const prompt = `Generate comprehensive unit tests for this code:\n\n\`\`\`${editor.document.languageId}\n${code}\n\`\`\``;
-
-    vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: 'Generating tests...',
-            cancellable: false,
-        },
-        async () => {
-            const response = await apiClient.chatCompletion([
-                { role: 'user', content: prompt },
-            ]);
-
-            showMarkdownPreview('Generated Tests', response.choices[0].message.content);
-        }
-    );
-}
-
-async function showStats() {
+async function checkServerHealth(): Promise<void> {
     try {
-        const stats = await apiClient.getStats();
-
-        const message = `
-**MarunochiAI Statistics**
-
-Vector Index:
-- Total chunks: ${stats.vector.total_chunks}
-- Files indexed: ${stats.vector.total_files || 'N/A'}
-
-Keyword Index:
-- Total chunks: ${stats.keyword.total_chunks}
-
-Search:
-- RRF k: ${stats.rrf_k}
-- Fusion enabled: ${stats.fusion_enabled}
-- Watcher running: ${stats.watcher_running}
-        `.trim();
-
-        showMarkdownPreview('MarunochiAI Statistics', message);
-    } catch (error) {
-        vscode.window.showErrorMessage(`Failed to get stats: ${error}`);
+        const healthy = await apiClient.healthCheck();
+        if (!healthy) {
+            vscode.window.showWarningMessage(
+                'MarunochiAI: Server not responding. Start it with: marunochithe server'
+            );
+        }
+    } catch {
+        vscode.window.showWarningMessage('MarunochiAI: Could not connect to server');
     }
-}
-
-function showMarkdownPreview(title: string, content: string) {
-    const panel = vscode.window.createWebviewPanel(
-        'marunochiAI.preview',
-        title,
-        vscode.ViewColumn.Beside,
-        {}
-    );
-
-    panel.webview.html = getWebviewContent(title, content);
-}
-
-function getWebviewContent(title: string, markdown: string): string {
-    // Convert markdown to HTML (basic conversion)
-    let html = markdown
-        .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br/>');
-
-    html = `<p>${html}</p>`;
-
-    return `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${title}</title>
-            <style>
-                body {
-                    font-family: var(--vscode-font-family);
-                    padding: 20px;
-                    color: var(--vscode-foreground);
-                }
-                code {
-                    background-color: var(--vscode-textCodeBlock-background);
-                    padding: 2px 4px;
-                    border-radius: 3px;
-                }
-                pre {
-                    background-color: var(--vscode-textCodeBlock-background);
-                    padding: 10px;
-                    border-radius: 5px;
-                    overflow-x: auto;
-                }
-                pre code {
-                    background: none;
-                    padding: 0;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>${title}</h1>
-            ${html}
-        </body>
-        </html>
-    `;
 }
 
 export function deactivate() {

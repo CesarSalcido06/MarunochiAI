@@ -1,8 +1,8 @@
 {
   "name": "vscode-marunochiAI",
   "displayName": "MarunochiAI",
-  "description": "The most powerful VSCode extension for AI-powered coding with semantic code understanding",
-  "version": "0.2.0",
+  "description": "Your ultimate local AI coding companion - Copilot-style completions, inline edit, and full chat",
+  "version": "0.4.0",
   "publisher": "MarunochiAI",
   "engines": {
     "vscode": "^1.80.0"
@@ -11,23 +11,76 @@
     "Programming Languages",
     "Machine Learning",
     "Snippets",
-    "Other"
+    "Chat"
   ],
   "keywords": [
     "ai",
+    "copilot",
+    "chat",
     "assistant",
     "code",
     "completion",
-    "semantic-search",
+    "inline",
     "ollama",
-    "self-hosted"
+    "local",
+    "self-hosted",
+    "qwen"
   ],
   "activationEvents": [
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "marunochiAI",
+          "title": "MarunochiAI",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "views": {
+      "marunochiAI": [
+        {
+          "type": "webview",
+          "id": "marunochiAI.chatPanel",
+          "name": "Chat",
+          "icon": "$(comment-discussion)",
+          "contextualTitle": "MarunochiAI Chat"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "marunochiAI.openChat",
+        "title": "MarunochiAI: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "marunochiAI.askChat",
+        "title": "MarunochiAI: Ask in Chat",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "marunochiAI.explainInChat",
+        "title": "MarunochiAI: Explain in Chat"
+      },
+      {
+        "command": "marunochiAI.inlineChat",
+        "title": "MarunochiAI: Inline Edit (Cmd+I)",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "marunochiAI.triggerCompletion",
+        "title": "MarunochiAI: Trigger Completion",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "marunochiAI.toggleCompletion",
+        "title": "MarunochiAI: Toggle Completions",
+        "icon": "$(circle-slash)"
+      },
       {
         "command": "marunochiAI.indexWorkspace",
         "title": "MarunochiAI: Index Workspace",
@@ -39,91 +92,71 @@
         "icon": "$(search)"
       },
       {
-        "command": "marunochiAI.openChat",
-        "title": "MarunochiAI: Open Chat",
-        "icon": "$(comment-discussion)"
+        "command": "marunochiAI.explain",
+        "title": "MarunochiAI: Explain Selection"
       },
       {
-        "command": "marunochiAI.explainCode",
-        "title": "MarunochiAI: Explain Code"
+        "command": "marunochiAI.refactor",
+        "title": "MarunochiAI: Refactor Selection"
       },
       {
-        "command": "marunochiAI.refactorCode",
-        "title": "MarunochiAI: Refactor Code"
+        "command": "marunochiAI.fix",
+        "title": "MarunochiAI: Fix Selection"
       },
       {
-        "command": "marunochiAI.debugCode",
-        "title": "MarunochiAI: Debug Code"
+        "command": "marunochiAI.document",
+        "title": "MarunochiAI: Add Documentation"
       },
       {
         "command": "marunochiAI.generateTests",
         "title": "MarunochiAI: Generate Tests"
-      },
-      {
-        "command": "marunochiAI.showStats",
-        "title": "MarunochiAI: Show Statistics"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "when": "editorHasSelection",
-          "command": "marunochiAI.explainCode",
-          "group": "marunochiAI@1"
+          "command": "marunochiAI.inlineChat",
+          "group": "marunochiAI@0",
+          "when": "editorTextFocus"
         },
         {
-          "when": "editorHasSelection",
-          "command": "marunochiAI.refactorCode",
-          "group": "marunochiAI@2"
+          "command": "marunochiAI.explainInChat",
+          "group": "marunochiAI@1",
+          "when": "editorHasSelection"
         },
         {
-          "when": "editorHasSelection",
-          "command": "marunochiAI.debugCode",
-          "group": "marunochiAI@3"
+          "command": "marunochiAI.refactor",
+          "group": "marunochiAI@2",
+          "when": "editorHasSelection"
         },
         {
-          "when": "editorHasSelection",
+          "command": "marunochiAI.fix",
+          "group": "marunochiAI@3",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "marunochiAI.document",
+          "group": "marunochiAI@4",
+          "when": "editorHasSelection"
+        },
+        {
           "command": "marunochiAI.generateTests",
-          "group": "marunochiAI@4"
+          "group": "marunochiAI@5",
+          "when": "editorHasSelection"
         }
       ],
-      "commandPalette": [
+      "editor/title": [
         {
-          "command": "marunochiAI.explainCode",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "marunochiAI.refactorCode",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "marunochiAI.debugCode",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "marunochiAI.generateTests",
-          "when": "editorHasSelection"
+          "command": "marunochiAI.openChat",
+          "group": "navigation",
+          "when": "editorTextFocus"
         }
-      ]
-    },
-    "viewsContainers": {
-      "activitybar": [
+      ],
+      "view/title": [
         {
-          "id": "marunochiAI",
-          "title": "MarunochiAI",
-          "icon": "resources/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "marunochiAI": [
-        {
-          "id": "marunochiAI.searchView",
-          "name": "Code Search"
-        },
-        {
-          "id": "marunochiAI.chatView",
-          "name": "Chat"
+          "command": "marunochiAI.indexWorkspace",
+          "when": "view == marunochiAI.chatPanel",
+          "group": "navigation"
         }
       ]
     },
@@ -140,49 +173,62 @@
           "default": "",
           "description": "Optional API key for authentication"
         },
-        "marunochiAI.model": {
-          "type": "string",
-          "enum": ["auto", "7b", "14b", "custom"],
-          "default": "auto",
-          "description": "Model to use for completions"
-        },
-        "marunochiAI.autoIndex": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically index workspace on startup"
-        },
         "marunochiAI.enableCompletion": {
           "type": "boolean",
           "default": true,
-          "description": "Enable AI-powered code completions"
+          "description": "Enable inline ghost text completions (like Copilot)"
         },
-        "marunochiAI.searchLimit": {
+        "marunochiAI.completionDebounce": {
           "type": "number",
-          "default": 10,
-          "description": "Maximum search results to display"
+          "default": 150,
+          "description": "Debounce delay in ms before triggering completion"
         },
-        "marunochiAI.enableInlineChat": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable inline chat features"
+        "marunochiAI.model": {
+          "type": "string",
+          "enum": ["auto", "7b", "14b"],
+          "default": "auto",
+          "description": "Model selection: auto (smart routing), 7b (fast), 14b (powerful)"
         }
       }
     },
     "keybindings": [
+      {
+        "command": "marunochiAI.inlineChat",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "marunochiAI.openChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      },
+      {
+        "command": "marunochiAI.askChat",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      },
+      {
+        "command": "marunochiAI.triggerCompletion",
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space",
+        "when": "editorTextFocus"
+      },
       {
         "command": "marunochiAI.searchCode",
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f"
       },
       {
-        "command": "marunochiAI.openChat",
-        "key": "ctrl+shift+c",
-        "mac": "cmd+shift+c"
-      },
-      {
-        "command": "marunochiAI.explainCode",
+        "command": "marunochiAI.explain",
         "key": "ctrl+shift+e",
         "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "marunochiAI.refactor",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
         "when": "editorHasSelection"
       }
     ]

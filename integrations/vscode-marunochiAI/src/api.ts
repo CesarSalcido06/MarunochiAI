@@ -45,6 +45,14 @@ export interface Stats {
     watcher_running: boolean;
 }
 
+export interface CompletionRequest {
+    prefix: string;
+    suffix: string;
+    language: string;
+    filepath: string;
+    maxTokens?: number;
+}
+
 export class MarunochiAPIClient {
     private client: AxiosInstance;
 
@@ -52,7 +60,7 @@ export class MarunochiAPIClient {
         this.client = axios.create({
             baseURL,
             headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-            timeout: 30000,
+            timeout: 10000, // 10s for completions
         });
     }
 
@@ -76,12 +84,91 @@ export class MarunochiAPIClient {
         return response.data;
     }
 
-    async chatCompletion(messages: ChatMessage[]): Promise<ChatCompletionResponse> {
+    async chatCompletion(messages: ChatMessage[], stream: boolean = false): Promise<ChatCompletionResponse> {
         const response = await this.client.post('/v1/chat/completions', {
             messages,
-            stream: false,
+            stream,
         });
         return response.data;
+    }
+
+    /**
+     * Get inline code completion using Fill-in-the-Middle (FIM) format
+     */
+    async getInlineCompletion(request: CompletionRequest): Promise<string> {
+        const { prefix, suffix, language, filepath, maxTokens = 150 } = request;
+
+        // Use FIM-style prompt for code completion
+        const prompt = `<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}<|fim_middle|>`;
+
+        const messages: ChatMessage[] = [
+            {
+                role: 'system',
+                content: `You are an expert code completion assistant. Complete the code at the cursor position.
+Language: ${language}
+File: ${filepath}
+Rules:
+- Output ONLY the code to insert at the cursor
+- No explanations, no markdown, no code blocks
+- Match the existing code style and indentation
+- Keep completions concise (1-3 lines typically)
+- If completing a function call, include the closing parenthesis
+- If completing a statement, include the semicolon if appropriate`,
+            },
+            {
+                role: 'user',
+                content: prompt,
+            },
+        ];
+
+        const response = await this.client.post('/v1/chat/completions', {
+            messages,
+            max_tokens: maxTokens,
+            temperature: 0.2, // Low temperature for more deterministic completions
+            stream: false,
+        });
+
+        return response.data.choices[0].message.content.trim();
+    }
+
+    /**
+     * Streaming chat for inline edits
+     */
+    async *streamChat(messages: ChatMessage[]): AsyncGenerator<string> {
+        const response = await this.client.post('/v1/chat/completions', {
+            messages,
+            stream: true,
+        }, {
+            responseType: 'stream',
+            timeout: 60000, // 60s for streaming
+        });
+
+        const stream = response.data;
+        let buffer = '';
+
+        for await (const chunk of stream) {
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    if (data === '[DONE]') {
+                        return;
+                    }
+                    try {
+                        const parsed = JSON.parse(data);
+                        const content = parsed.choices?.[0]?.delta?.content;
+                        if (content) {
+                            yield content;
+                        }
+                    } catch {
+                        // Ignore parse errors
+                    }
+                }
+            }
+        }
     }
 
     async healthCheck(): Promise<boolean> {
