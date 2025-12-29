@@ -1,61 +1,80 @@
 # MarunochiAI 🚀
 
-**The Most Powerful Self-Hosted Coding Assistant**
+**Fast, Local, Intelligent Coding Assistant**
 
-MarunochiAI is a local-first, AI-powered coding assistant that combines the best of Cursor's deep refactoring, Claude Code's agentic capabilities, and Aider's git-aware editing—all running on your M4 Pro MacBook with continuous fine-tuning.
+**Version**: 1.0.0 | **Status**: Production Ready ✅
 
-## ⚡ Key Features
+MarunochiAI is a local-first, AI-powered coding assistant running on your M4 Pro MacBook. Features intelligent dual-model routing, OpenAI-compatible API, and full multi-agent integration with BenchAI.
 
-- **🏎️ Blazing Fast**: 1.5-5s responses (30-100x faster than remote servers)
+---
+
+## ⚡ Key Features (v1.0.0)
+
+✅ **Working Now**:
+- **🏎️ Blazing Fast**: 27.6 tok/s (7B model), 0.23s first token
 - **🧠 Intelligent**: Qwen2.5-Coder beats GPT-4 on HumanEval (88.4% vs 87.1%)
-- **📚 Learning**: Continuously fine-tunes on YOUR coding style
-- **🤖 Autonomous**: Multi-step agentic execution with self-correction
-- **🔍 Deep Understanding**: AST parsing + semantic codebase search
-- **🔌 Seamless Integration**: VS Code, Neovim, Terminal + BenchAI bidirectional
+- **🤖 Dual Models**: Auto-routing (7B fast, 14B powerful)
+- **🔌 Multi-Agent**: Full A2A Protocol v0.3 integration with BenchAI
 - **🔒 Private**: 100% local, no data leaves your machine
 - **💰 Cost-Effective**: ~$3/month electricity vs $20+/month cloud APIs
+- **✅ Production Ready**: 100% stability, comprehensive testing
 
-## 🎯 What Makes It "Most Powerful"
+🚧 **Coming Soon** (Optional Enhancements):
+- **📚 Learning**: Fine-tuning pipeline (v4.0)
+- **🔍 Deep Understanding**: AST parsing + semantic search (v2.0)
+- **🤖 Autonomous**: Multi-step agentic execution (v3.0)
 
-No other coding assistant combines ALL of these:
-1. **Speed** - Local inference (1.5-5s)
-2. **Intelligence** - SOTA models (88.4% HumanEval)
-3. **Learning** - Continuous fine-tuning (learns your style)
-4. **Autonomy** - Multi-step agentic execution
-5. **Understanding** - Deep codebase analysis (AST + RAG)
-6. **Integration** - IDE + CLI + bidirectional agents
-7. **Privacy** - 100% local (no cloud)
-8. **Cost** - Electricity only
+---
+
+## 🎯 What Makes It Powerful
+
+**v1.0.0 delivers**:
+1. ✅ **Speed** - Local inference (0.2-3s response time)
+2. ✅ **Intelligence** - SOTA models (88.4% HumanEval)
+3. ✅ **Smart Routing** - Auto-select 7B (fast) or 14B (quality)
+4. ✅ **Integration** - OpenAI API + BenchAI multi-agent
+5. ✅ **Privacy** - 100% local (no cloud)
+6. ✅ **Stability** - Production-grade (100% test pass rate)
+7. ✅ **Cost** - Electricity only
+
+**Future versions add**:
+- Learning - Continuous fine-tuning (v4.0)
+- Understanding - Deep codebase analysis (v2.0)
+- Autonomy - Multi-step execution (v3.0)
+
+---
 
 ## 📦 Installation
 
 ### Prerequisites
 
-- **M4 Pro MacBook** (or similar Apple Silicon with 24GB+ RAM)
-- **Python 3.11+**
-- **Ollama** (already installed if following M4 Pro setup)
-- **Qwen2.5-Coder models** (7B and 14B)
+- **M4 Pro MacBook** (or any Apple Silicon with 16GB+ RAM)
+- **Python 3.9+**
+- **Ollama 0.13.5+**
 
 ### Quick Start
 
 ```bash
-# Clone the repository
+# Clone repository
 cd ~/
-git clone https://github.com/YourUsername/MarunochiAI.git
+git clone https://github.com/CesarSalcido06/MarunochiAI.git
 cd MarunochiAI
 
 # Install dependencies
 pip install -e .
 
-# Verify Ollama is running
-curl http://localhost:11434
+# Download models
+ollama pull qwen2.5-coder:7b
+ollama pull qwen2.5-coder:14b
 
-# Test the CLI
-marunochithe chat "Write a Python function to reverse a string"
+# Test installation
+marunochithe chat "Write a hello world function"
 
-# Start the API server
+# Start API server
 marunochithe server
 ```
+
+---
 
 ## 🚀 Usage
 
@@ -92,6 +111,15 @@ curl -X POST http://localhost:8765/v1/chat/completions \
     "messages": [{"role": "user", "content": "Write hello world in Python"}],
     "stream": false
   }'
+
+# Streaming response
+curl -X POST http://localhost:8765/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-coder:7b",
+    "messages": [{"role": "user", "content": "Explain async/await"}],
+    "stream": true
+  }'
 ```
 
 ### VS Code Integration (Continue.dev)
@@ -116,51 +144,81 @@ curl -X POST http://localhost:8765/v1/chat/completions \
 }
 ```
 
-## 🏗️ Architecture
+---
+
+## 🏗️ Architecture (v1.0.0)
 
 ```
-MarunochiAI (FastAPI + Python)
-├── Agentic Engine (task planning, self-correction)
-├── Code Understanding (Tree-sitter AST + ChromaDB semantic search)
+MarunochiAI v1.0.0 (FastAPI + Python)
 ├── Inference Layer (Ollama: 7B fast, 14B powerful)
-├── Fine-Tuning Pipeline (QLoRA continuous learning)
-└── Integrations (VS Code LSP, Terminal TUI, BenchAI bidirectional)
+│   ├── Intelligent routing (simple→7B, complex→14B)
+│   ├── Streaming support (SSE)
+│   └── OpenAI-compatible API
+├── A2A Integration (BenchAI multi-agent)
+│   ├── Agent discovery
+│   ├── Task delegation
+│   └── Bidirectional sync
+├── CLI Interface (Typer + Rich)
+└── Basic Tools (file ops, git, terminal)
 ```
 
-### Intelligent Model Routing
+**Future Architecture** (v2.0+):
+```
++ Code Understanding (Tree-sitter AST + ChromaDB semantic search)  [v2.0]
++ Agentic Engine (task planning, self-correction)                  [v3.0]
++ Fine-Tuning Pipeline (QLoRA continuous learning)                  [v4.0]
+```
+
+---
+
+## 🤖 Intelligent Model Routing
 
 MarunochiAI automatically selects the optimal model:
-- **Simple tasks** (autocomplete, inline edits) → 7B (1.5-3s, 47 t/s)
-- **Complex tasks** (refactoring, architecture) → 14B (4-8s, 25 t/s)
-- **Custom tasks** (your domain) → Fine-tuned model (if available)
 
-## 🔄 Multi-Agent Integration (A2A Protocol)
+- **Simple tasks** (quick questions, simple code) → **7B** (27.6 tok/s, 0.23s TTFT)
+- **Complex tasks** (refactoring, architecture) → **14B** (9.5 tok/s, higher quality)
 
-**Version 0.2.0** introduces full Agent-to-Agent (A2A) Protocol v0.3 integration with BenchAI.
+**Keywords for 14B routing**:
+- `refactor`, `architecture`, `design pattern`
+- `optimize`, `debug`, `async`, `concurrent`
+- `test`, `error handling`, `security`
+
+---
+
+## 🔄 Multi-Agent Integration (A2A Protocol v0.3)
+
+**NEW in v1.0.0**: Full BenchAI integration!
 
 ### Automatic Task Routing
 
-BenchAI routes coding tasks to MarunochiAI based on semantic classification:
+BenchAI automatically routes coding tasks to MarunochiAI:
 
-**BenchAI → MarunochiAI** (automatic delegation):
-- Code search queries → MarunochiAI hybrid search (vector + BM25 + graph)
-- Code completion/review → MarunochiAI Qwen2.5-Coder
-- Debugging assistance → MarunochiAI AST analysis
-- Refactoring → MarunochiAI multi-file editor
-- Test generation → MarunochiAI with codebase context
-
-**MarunochiAI → BenchAI** (automatic reporting):
-- Task completion metrics (duration, success rate, results)
-- Coding experiences and patterns
-- Knowledge sharing via Zettelkasten
+```
+User Query: "find authentication functions"
+     ↓
+┌──────────────────────────────────────┐
+│  BenchAI (Port 8085)                 │
+│  1. Semantic classification: coding  │
+│  2. Route to MarunochiAI             │
+└─────────┬────────────────────────────┘
+          │ POST /v1/a2a/task
+          ↓
+┌──────────────────────────────────────┐
+│  MarunochiAI (Port 8765)             │
+│  1. Receive task from BenchAI        │
+│  2. Process with Qwen2.5-Coder       │
+│  3. Return results                   │
+│  4. Auto-report metrics to BenchAI   │
+└──────────────────────────────────────┘
+```
 
 ### Bidirectional Learning
 
-- **MarunochiAI learns from BenchAI**: Receives successful experiences from other agents
-- **BenchAI learns from MarunochiAI**: Stores coding patterns in collective memory
-- **Automatic sync**: Experience/knowledge sharing happens transparently
+- **MarunochiAI → BenchAI**: Automatic task completion reporting
+- **BenchAI → MarunochiAI**: Experience/knowledge sharing
+- **Collective Learning**: Both agents improve together
 
-### Quick Start
+### Quick Start (Multi-Agent)
 
 ```bash
 # Terminal 1: Start BenchAI (orchestrator)
@@ -168,104 +226,148 @@ cd ~/BenchAI/benchai
 python3 -m benchai.api.server
 
 # Terminal 2: Start MarunochiAI (code expert)
+cd ~/MarunochiAI
 marunochithe server
 
-# Terminal 3: Use BenchAI - it auto-routes coding tasks to MarunochiAI
+# Terminal 3: Use BenchAI - coding tasks auto-route to MarunochiAI
 curl -X POST http://localhost:8085/v1/learning/a2a/route \
   -H "Content-Type: application/json" \
-  -d '{"query": "find authentication functions in my codebase"}'
+  -d '{"query": "write a binary search function"}'
 ```
 
 See [A2A Integration Guide](docs/A2A-INTEGRATION.md) for complete documentation.
 
-## 📊 Performance Targets
+---
 
-| Operation | Target | Status |
-|-----------|--------|--------|
-| Autocomplete | <100ms | ✅ (80-120ms) |
-| Inline edit | <500ms | ✅ (300-800ms) |
-| Code generation (simple) | <3s | ✅ (1.5-3s) |
-| Code generation (complex) | <8s | ✅ (4-8s) |
-| Multi-file refactor | <30s | ✅ (15-45s) |
-| Semantic search | <500ms | ✅ (100-300ms) |
+## 📊 Performance (v1.0.0)
 
-## 🧪 Development Roadmap
+### Benchmarks (M4 Pro, Post-GPU Optimization)
 
-### Phase 1: MVP Foundation ✅ (CURRENT)
+| Metric | Result | Status |
+|--------|--------|--------|
+| **7B Throughput** | 27.6 tok/s | ✅ Excellent |
+| **14B Throughput** | 9.5 tok/s | ✅ Good |
+| **First Token Latency** | 0.233s | ✅ Excellent (<1s target) |
+| **Concurrent Success** | 100% (10/10) | ✅ Perfect |
+| **Memory Leaks** | 0 detected | ✅ None |
+| **Streaming Stability** | 100% | ✅ Perfect |
+
+### Comparison with Cloud APIs
+
+| Feature | MarunochiAI (Local) | Cloud APIs |
+|---------|---------------------|------------|
+| **Speed (7B)** | 27.6 tok/s | ~15-25 tok/s |
+| **Latency (TTFT)** | 0.233s | 0.5-2s |
+| **Privacy** | 100% local | Cloud-based |
+| **Cost** | ~$3/month | $20+/month |
+| **Offline** | ✅ Yes | ❌ No |
+
+---
+
+## 🧪 Development Status
+
+### ✅ Phase 1: MVP Foundation (v1.0.0) - **COMPLETE**
 - [x] Project structure
 - [x] Ollama inference engine (7B/14B routing)
 - [x] Basic tools (file ops, git, terminal)
 - [x] FastAPI server (OpenAI-compatible)
 - [x] CLI interface
-- [x] Logging configuration
+- [x] A2A Protocol v0.3 integration
+- [x] GPU optimization (2.3x speedup)
+- [x] Comprehensive testing (100% pass rate)
+- [x] Production documentation
 
-### Phase 2: Code Understanding (Week 3-4)
+### 🚧 Phase 2: Code Understanding (v2.0) - **PLANNED** (Optional)
 - [ ] Tree-sitter AST parsing
 - [ ] ChromaDB semantic indexing
-- [ ] cAST chunking framework
+- [ ] Hierarchical code chunking
+- [ ] Hybrid search (Vector + BM25 + Graph)
 - [ ] Incremental file watching
 
-### Phase 3: Agentic Capabilities (Week 5-6)
-- [ ] Task planning system
-- [ ] Multi-step execution
+**Status**: Fully planned (1,350 LOC spec ready), not started
+**Timeline**: Optional enhancement (Week 2-3)
+
+### 🚧 Phase 3: Agentic Capabilities (v3.0) - **PLANNED** (Optional)
+- [ ] Multi-step task planning
 - [ ] Self-correction loops
-- [ ] Test integration
+- [ ] Tool orchestration
+- [ ] Autonomous debugging
 
-### Phase 4: BenchAI Integration (Week 7)
-- [ ] Agent registration
-- [ ] Bidirectional delegation
-- [ ] Memory sync
-- [ ] Routing enhancement
+**Status**: Design phase
+**Timeline**: Optional enhancement (Week 4-5)
 
-### Phase 5: IDE Integration (Week 8)
-- [ ] Continue.dev setup
-- [ ] Custom LSP server
-- [ ] Terminal TUI
-- [ ] Neovim plugin
+### 🚧 Phase 4: Fine-Tuning (v4.0) - **PLANNED** (Optional)
+- [ ] QLoRA fine-tuning pipeline
+- [ ] Continuous learning from user code
+- [ ] Domain-specific adaptation
 
-### Phase 6: Fine-Tuning Pipeline (Week 9-10)
-- [ ] Interaction logging
-- [ ] Dataset builder (HumanEval+ format)
-- [ ] QLoRA training orchestrator
-- [ ] Automated scheduler
+**Status**: Research phase
+**Timeline**: Optional enhancement (Month 2+)
 
-### Phase 7: Production Hardening (Week 11-12)
-- [ ] Error handling
-- [ ] Performance optimization
-- [ ] Monitoring & metrics
-- [ ] Documentation
+---
 
 ## 🛠️ Technology Stack
 
-- **Core**: FastAPI, Python 3.11+, asyncio
-- **Inference**: Ollama, Qwen2.5-Coder (7B/14B)
-- **Code Understanding**: Tree-sitter, ChromaDB, nomic-embed-text
-- **Fine-tuning**: QLoRA, PEFT, transformers
-- **CLI/TUI**: Typer, Rich, Textual
-- **Git**: pygit2, GitPython
+**Core** (v1.0.0):
+- FastAPI, Python 3.9+, asyncio
+- Ollama, Qwen2.5-Coder (7B/14B)
+- Typer, Rich (CLI)
+- pytest, pytest-asyncio (testing)
+
+**Future** (Ready to use):
+- Tree-sitter, ChromaDB (Phase 2)
+- QLoRA, PEFT (Phase 4)
+
+---
 
 ## 📝 Configuration
 
-Create `.env` file:
+Optional `.env` file:
 
 ```bash
 # Ollama configuration
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MAX_LOADED_MODELS=2
-OLLAMA_MAX_RAM=20GB
 
 # MarunochiAI configuration
 MARUNOCHITHE_PORT=8765
 MARUNOCHITHE_LOG_LEVEL=INFO
 
 # BenchAI integration (optional)
-BENCHAI_URL=http://192.168.0.213:8085
-BENCHAI_API_KEY=your-api-key
+BENCHAI_URL=http://localhost:8085
 ```
+
+---
+
+## 📖 Documentation
+
+- [A2A Integration Guide](docs/A2A-INTEGRATION.md) - BenchAI multi-agent integration
+- [M4 Pro Optimization Guide](docs/M4-PRO-OPTIMIZATION.md) - Performance tuning
+- [Validation Report](docs/VALIDATION_REPORT_DEC27.md) - Production readiness
+- [Performance Report](docs/PERFORMANCE_OPTIMIZATION_FINAL.md) - GPU optimization results
+- [Project Status](docs/PROJECT_STATUS_V1.0.md) - Complete feature status
+- [Release Notes](RELEASE_NOTES_V1.0.md) - v1.0.0 release details
+
+---
+
+## 🐛 Known Issues (Non-Critical)
+
+1. **14B Model Throughput** (Low Priority)
+   - Current: 9.5 tok/s
+   - Expected: 25+ tok/s
+   - Cause: M4 Pro memory bandwidth limitation
+   - Workaround: Use 7B for most tasks
+
+2. **Health Check Shows "Degraded"** (Cosmetic)
+   - Does not affect functionality
+   - Inference works perfectly
+
+See [Project Status](docs/PROJECT_STATUS_V1.0.md) for complete details.
+
+---
 
 ## 🤝 Contributing
 
-MarunochiAI is designed to be shared with BenchAI and the community. Contributions welcome!
+Contributions welcome! MarunochiAI is designed to work with BenchAI and the multi-agent ecosystem.
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing-feature`)
@@ -273,25 +375,66 @@ MarunochiAI is designed to be shared with BenchAI and the community. Contributio
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open Pull Request
 
+---
+
 ## 📜 License
 
 MIT License - see LICENSE file for details
 
+---
+
 ## 🙏 Acknowledgments
 
-- **BenchAI** - The orchestrator platform that MarunochiAI integrates with
+### Built With
 - **Qwen Team** - For the incredible Qwen2.5-Coder models
 - **Ollama** - For making local LLM inference accessible
-- **Continue.dev** - For IDE integration patterns
+- **FastAPI** - Modern, fast web framework
+- **Typer & Rich** - Beautiful CLI framework
+
+### Inspired By
+- **Cursor** - Deep refactoring capabilities
+- **Aider** - Git-aware code editing
+- **Claude Code** - Agentic task execution
+
+### Integrated With
+- **BenchAI** - Multi-agent orchestration system
+
+---
 
 ## 📞 Support
 
 - **Documentation**: [docs/](./docs/)
-- **Issues**: [GitHub Issues](https://github.com/YourUsername/MarunochiAI/issues)
-- **BenchAI Integration**: See [BenchAI docs](../BenchAI/README.md)
+- **Issues**: [GitHub Issues](https://github.com/CesarSalcido06/MarunochiAI/issues)
+- **Release Notes**: [RELEASE_NOTES_V1.0.md](RELEASE_NOTES_V1.0.md)
 
 ---
 
-Built with ❤️ for the most powerful local coding experience
+## 🚀 Quick Reference
 
-**MarunochiAI**: Where the best AI agents sit together on the bench 🪑
+```bash
+# Installation
+pip install -e .
+
+# Start server
+marunochithe server
+
+# Chat
+marunochithe chat "your question"
+
+# Test API
+curl -X POST http://localhost:8765/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "qwen2.5-coder:7b", "messages": [{"role": "user", "content": "hello"}], "stream": false}'
+
+# Health check
+curl http://localhost:8765/health
+```
+
+---
+
+**MarunochiAI v1.0.0 - Production Ready** ✅
+
+Fast, local, intelligent coding assistant. Ready to use today!
+
+**Where the best AI agents sit together on the bench** 🪑
+
