@@ -1,42 +1,92 @@
--- MarunochiAI - Minimal AI Assistant for Neovim
+-- MarunochiAI - Ultimate Coding Assistant for Neovim
+-- Cursor/Copilot-style AI experience
 local M = {}
 
 M.config = {
   api_url = "http://localhost:8765",
+  ghost_text = true,  -- Enable Copilot-style completions
 }
 
 function M.setup(opts)
   M.config = vim.tbl_extend("force", M.config, opts or {})
 
-  -- Setup API
+  -- Initialize modules
   local api = require("marunochiAI.api")
+  local chat = require("marunochiAI.chat")
+  local edit = require("marunochiAI.edit")
+  local complete = require("marunochiAI.complete")
+
   api.setup(M.config)
 
-  local chat = require("marunochiAI.chat")
+  -- Setup ghost completions
+  if M.config.ghost_text then
+    complete.setup()
+  end
 
-  -- ════════════════════════════════════════════════════════════
-  -- KEYMAPS
-  -- ════════════════════════════════════════════════════════════
+  -- ══════════════════════════════════════════════════════════════════
+  -- KEYBINDINGS (Cursor/Copilot style)
+  -- ══════════════════════════════════════════════════════════════════
 
-  -- Toggle chat: <leader>ac
-  vim.keymap.set("n", "<leader>ac", chat.toggle, { desc = "AI Chat" })
+  -- Chat sidebar: <leader>ac (like Cursor's Cmd+L)
+  vim.keymap.set("n", "<leader>ac", chat.toggle, { desc = "AI: Chat" })
 
-  -- Code actions (visual mode)
+  -- Inline edit: <leader>ae (like Cursor's Cmd+K)
   vim.keymap.set("v", "<leader>ae", function()
-    M.action("explain")
-  end, { desc = "AI Explain" })
+    vim.cmd("normal! ")  -- Exit visual mode
+    edit.edit_selection()
+  end, { desc = "AI: Edit selection" })
+
+  -- Generate at cursor: <leader>ag
+  vim.keymap.set("n", "<leader>ag", edit.generate_at_cursor, { desc = "AI: Generate" })
+
+  -- Accept ghost completion: Tab
+  vim.keymap.set("i", "<Tab>", function()
+    if complete.accept() then
+      return ""  -- Consumed
+    end
+    return vim.api.nvim_replace_termcodes("<Tab>", true, false, true)
+  end, { expr = true, desc = "AI: Accept completion" })
+
+  -- Dismiss ghost completion: Ctrl+]
+  vim.keymap.set("i", "<C-]>", complete.dismiss, { desc = "AI: Dismiss" })
+
+  -- Manual trigger: Ctrl+Space
+  vim.keymap.set("i", "<C-Space>", complete.trigger, { desc = "AI: Trigger completion" })
+
+  -- Toggle ghost text: <leader>at
+  vim.keymap.set("n", "<leader>at", complete.toggle, { desc = "AI: Toggle completions" })
+
+  -- Code actions
+  vim.keymap.set("v", "<leader>ax", function()
+    vim.cmd("normal! ")
+    local s = vim.fn.line("'<")
+    local e = vim.fn.line("'>")
+    local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
+    local code = table.concat(lines, "\n")
+    chat.ask_about_code("Explain this code:", code, vim.bo.filetype)
+  end, { desc = "AI: Explain" })
 
   vim.keymap.set("v", "<leader>ar", function()
-    M.action("refactor")
-  end, { desc = "AI Refactor" })
+    vim.cmd("normal! ")
+    local s = vim.fn.line("'<")
+    local e = vim.fn.line("'>")
+    local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
+    local code = table.concat(lines, "\n")
+    chat.ask_about_code("Refactor this code:", code, vim.bo.filetype)
+  end, { desc = "AI: Refactor" })
 
   vim.keymap.set("v", "<leader>af", function()
-    M.action("fix")
-  end, { desc = "AI Fix" })
+    vim.cmd("normal! ")
+    local s = vim.fn.line("'<")
+    local e = vim.fn.line("'>")
+    local lines = vim.api.nvim_buf_get_lines(0, s - 1, e, false)
+    local code = table.concat(lines, "\n")
+    chat.ask_about_code("Fix bugs in this code:", code, vim.bo.filetype)
+  end, { desc = "AI: Fix" })
 
-  -- ════════════════════════════════════════════════════════════
+  -- ══════════════════════════════════════════════════════════════════
   -- COMMANDS
-  -- ════════════════════════════════════════════════════════════
+  -- ══════════════════════════════════════════════════════════════════
 
   vim.api.nvim_create_user_command("AI", function(cmd)
     if cmd.args == "" then
@@ -45,34 +95,19 @@ function M.setup(opts)
       chat.open()
       chat.send(cmd.args)
     end
-  end, { nargs = "*", desc = "MarunochiAI" })
+  end, { nargs = "*", desc = "MarunochiAI Chat" })
 
-  vim.notify("MarunochiAI: <leader>ac = chat", vim.log.levels.INFO)
-end
+  vim.api.nvim_create_user_command("AIEdit", function()
+    edit.edit_selection()
+  end, { range = true, desc = "Edit with AI" })
 
--- Perform action on selected code
-function M.action(action_type)
-  -- Get selection
-  local start_line = vim.fn.line("'<")
-  local end_line = vim.fn.line("'>")
+  vim.api.nvim_create_user_command("AIGenerate", function()
+    edit.generate_at_cursor()
+  end, { desc = "Generate with AI" })
 
-  if start_line == 0 then
-    vim.notify("Select code first", vim.log.levels.WARN)
-    return
-  end
+  -- ══════════════════════════════════════════════════════════════════
 
-  local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
-  local code = table.concat(lines, "\n")
-  local filetype = vim.bo.filetype
-
-  local prompts = {
-    explain = "Explain this code:",
-    refactor = "Refactor this code to be cleaner:",
-    fix = "Fix any bugs in this code:",
-  }
-
-  local chat = require("marunochiAI.chat")
-  chat.send_with_code(prompts[action_type] or "Help with:", code, filetype)
+  vim.notify("MarunochiAI ready | <leader>ac=Chat | <leader>ae=Edit | Tab=Accept", vim.log.levels.INFO)
 end
 
 return M

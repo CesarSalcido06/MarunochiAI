@@ -1,17 +1,19 @@
--- MarunochiAI Chat - Simple floating window
+-- MarunochiAI Chat Sidebar (Cursor-style)
 local M = {}
 local api = require("marunochiAI.api")
 
--- State
 local state = {
   buf = nil,
   win = nil,
+  input_buf = nil,
+  input_win = nil,
   history = {},
   busy = false,
+  width = 60,
 }
 
--- Create or get chat buffer
-local function get_buffer()
+-- Create chat buffer
+local function create_chat_buffer()
   if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
     return state.buf
   end
@@ -21,46 +23,50 @@ local function get_buffer()
   vim.bo[state.buf].bufhidden = "hide"
   vim.bo[state.buf].swapfile = false
   vim.bo[state.buf].filetype = "markdown"
+  vim.api.nvim_buf_set_name(state.buf, "MarunochiAI")
 
   return state.buf
 end
 
--- Render chat content
+-- Render chat
 local function render()
-  if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then
-    return
-  end
+  if not state.buf or not vim.api.nvim_buf_is_valid(state.buf) then return end
 
   vim.bo[state.buf].modifiable = true
 
-  local lines = { "# MarunochiAI", "" }
+  local lines = {}
 
-  if #state.history == 0 then
-    table.insert(lines, "Type your message and press Enter.")
-    table.insert(lines, "")
-    table.insert(lines, "Keybindings:")
-    table.insert(lines, "  i     - Type message")
-    table.insert(lines, "  q     - Close")
-    table.insert(lines, "  C     - Clear history")
-  else
-    for _, msg in ipairs(state.history) do
-      if msg.role == "user" then
-        table.insert(lines, "**You:** " .. msg.content)
-      else
-        table.insert(lines, "")
-        table.insert(lines, "**AI:**")
-        for _, line in ipairs(vim.split(msg.content, "\n")) do
-          table.insert(lines, line)
-        end
+  for _, msg in ipairs(state.history) do
+    if msg.role == "user" then
+      table.insert(lines, "━━━ You ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      for _, l in ipairs(vim.split(msg.content, "\n")) do
+        table.insert(lines, l)
       end
-      table.insert(lines, "")
-      table.insert(lines, "---")
-      table.insert(lines, "")
+    else
+      table.insert(lines, "━━━ AI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      for _, l in ipairs(vim.split(msg.content, "\n")) do
+        table.insert(lines, l)
+      end
     end
+    table.insert(lines, "")
+  end
+
+  if #lines == 0 then
+    lines = {
+      "MarunochiAI",
+      "",
+      "Type in the input box below and press Enter.",
+      "",
+      "Keybindings:",
+      "  <CR>  Send message",
+      "  q     Close panel",
+      "",
+    }
   end
 
   if state.busy then
-    table.insert(lines, "_Thinking..._")
+    table.insert(lines, "")
+    table.insert(lines, "▌ Thinking...")
   end
 
   vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
@@ -72,61 +78,98 @@ local function render()
   end
 end
 
--- Open chat window
+-- Open sidebar on the right
 function M.open()
-  -- Already open? Focus it
   if state.win and vim.api.nvim_win_is_valid(state.win) then
-    vim.api.nvim_set_current_win(state.win)
+    vim.api.nvim_set_current_win(state.input_win or state.win)
     return
   end
 
-  local buf = get_buffer()
+  -- Save current window
+  local current_win = vim.api.nvim_get_current_win()
 
-  -- Calculate size
-  local width = math.min(80, vim.o.columns - 10)
-  local height = math.min(25, vim.o.lines - 10)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  -- Create buffer
+  create_chat_buffer()
 
-  -- Open floating window
-  state.win = vim.api.nvim_open_win(buf, true, {
-    relative = "editor",
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    style = "minimal",
-    border = "rounded",
-    title = " MarunochiAI ",
-    title_pos = "center",
-  })
+  -- Create input buffer
+  state.input_buf = vim.api.nvim_create_buf(false, true)
+  vim.bo[state.input_buf].buftype = "nofile"
+  vim.bo[state.input_buf].swapfile = false
 
-  -- Window options
+  -- Open vertical split on the far right
+  vim.cmd("botright vnew")
+  state.win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(state.win, state.buf)
+  vim.api.nvim_win_set_width(state.win, state.width)
+
+  -- Window options for chat display
   vim.wo[state.win].wrap = true
   vim.wo[state.win].linebreak = true
-  vim.wo[state.win].cursorline = false
+  vim.wo[state.win].number = false
+  vim.wo[state.win].relativenumber = false
+  vim.wo[state.win].signcolumn = "no"
+  vim.wo[state.win].winfixwidth = true
+  vim.wo[state.win].statusline = " MarunochiAI Chat"
 
-  -- Keymaps
-  local opts = { buffer = buf, silent = true }
-  vim.keymap.set("n", "q", M.close, opts)
-  vim.keymap.set("n", "<Esc>", M.close, opts)
-  vim.keymap.set("n", "i", M.input, opts)
-  vim.keymap.set("n", "a", M.input, opts)
-  vim.keymap.set("n", "<CR>", M.input, opts)
-  vim.keymap.set("n", "C", M.clear, opts)
+  -- Create input area at bottom (horizontal split within our vertical split)
+  vim.cmd("belowright split")
+  state.input_win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(state.input_win, state.input_buf)
+  vim.api.nvim_win_set_height(state.input_win, 3)
+
+  -- Input window options
+  vim.wo[state.input_win].wrap = true
+  vim.wo[state.input_win].number = false
+  vim.wo[state.input_win].relativenumber = false
+  vim.wo[state.input_win].signcolumn = "no"
+  vim.wo[state.input_win].winfixheight = true
+  vim.wo[state.input_win].statusline = " Type message, Enter to send"
+
+  -- Input keymaps
+  local opts = { buffer = state.input_buf, silent = true }
+
+  vim.keymap.set("n", "<CR>", function() M.send_input() end, opts)
+  vim.keymap.set("i", "<CR>", function()
+    vim.cmd("stopinsert")
+    M.send_input()
+  end, opts)
+  vim.keymap.set({"n", "i"}, "q", function()
+    vim.cmd("stopinsert")
+    M.close()
+  end, opts)
+  vim.keymap.set("n", "<Esc>", function() M.close() end, opts)
+
+  -- Chat buffer keymaps
+  local chat_opts = { buffer = state.buf, silent = true }
+  vim.keymap.set("n", "q", function() M.close() end, chat_opts)
+  vim.keymap.set("n", "<Esc>", function() M.close() end, chat_opts)
+  vim.keymap.set("n", "i", function()
+    if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
+      vim.api.nvim_set_current_win(state.input_win)
+      vim.cmd("startinsert")
+    end
+  end, chat_opts)
 
   render()
+
+  -- Focus input and start insert mode
+  vim.api.nvim_set_current_win(state.input_win)
+  vim.cmd("startinsert")
 end
 
--- Close chat window
+-- Close sidebar
 function M.close()
+  if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
+    vim.api.nvim_win_close(state.input_win, true)
+  end
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     vim.api.nvim_win_close(state.win, true)
   end
   state.win = nil
+  state.input_win = nil
 end
 
--- Toggle chat
+-- Toggle sidebar
 function M.toggle()
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     M.close()
@@ -135,18 +178,26 @@ function M.toggle()
   end
 end
 
--- Get user input and send
-function M.input()
+-- Send from input buffer
+function M.send_input()
   if state.busy then
     vim.notify("Still processing...", vim.log.levels.WARN)
     return
   end
 
-  vim.ui.input({ prompt = "You: " }, function(input)
-    if input and input ~= "" then
-      M.send(input)
-    end
-  end)
+  if not state.input_buf or not vim.api.nvim_buf_is_valid(state.input_buf) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(state.input_buf, 0, -1, false)
+  local message = table.concat(lines, "\n"):gsub("^%s+", ""):gsub("%s+$", "")
+
+  if message == "" then return end
+
+  -- Clear input
+  vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, {""})
+
+  M.send(message)
 end
 
 -- Send message
@@ -161,17 +212,6 @@ function M.send(message)
 
   api.chat_stream(state.history, function(token)
     response = response .. token
-    -- Update display
-    vim.schedule(function()
-      if state.buf and vim.api.nvim_buf_is_valid(state.buf) then
-        vim.bo[state.buf].modifiable = true
-        local lines = vim.api.nvim_buf_get_lines(state.buf, 0, -1, false)
-        -- Update last line with streaming response
-        lines[#lines] = response:gsub("\n", " "):sub(1, 100) .. "..."
-        vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
-        vim.bo[state.buf].modifiable = false
-      end
-    end)
   end, function()
     state.busy = false
     table.insert(state.history, { role = "assistant", content = response })
@@ -179,18 +219,17 @@ function M.send(message)
   end)
 end
 
+-- Send with code context
+function M.ask_about_code(prompt, code, filetype)
+  local message = prompt .. "\n\n```" .. (filetype or "") .. "\n" .. code .. "\n```"
+  M.open()
+  M.send(message)
+end
+
 -- Clear history
 function M.clear()
   state.history = {}
   render()
-  vim.notify("Chat cleared", vim.log.levels.INFO)
-end
-
--- Send with context (for code actions)
-function M.send_with_code(prompt, code, filetype)
-  local message = string.format("%s\n\n```%s\n%s\n```", prompt, filetype or "", code)
-  M.open()
-  M.send(message)
 end
 
 return M
