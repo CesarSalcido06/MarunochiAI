@@ -1,224 +1,78 @@
----@class MarunochiAI
----@field config MarunochiConfig
----Cursor/Copilot-style AI coding assistant for Neovim
+-- MarunochiAI - Minimal AI Assistant for Neovim
 local M = {}
 
----@class MarunochiConfig
----@field api_url string Base URL for MarunochiAI API
----@field api_key string|nil Optional API key
----@field model string|nil Model to use (auto, 7b, 14b)
----@field auto_index boolean Auto-index workspace on startup
----@field ghost_text boolean Enable ghost text completions
----@field ghost_debounce number Ghost text debounce in ms
----@field keymaps MarunochiKeymaps Keymap configuration
-local default_config = {
+M.config = {
   api_url = "http://localhost:8765",
-  api_key = nil,
-  model = nil, -- Auto-select
-  auto_index = false,
-  ghost_text = true,
-  ghost_debounce = 300,
-  keymaps = {
-    -- Inline edit (like Cursor Cmd+K)
-    inline_edit = "<leader>ai",
-    -- Toggle chat panel
-    toggle_chat = "<leader>ac",
-    -- Accept ghost completion
-    accept_completion = "<Tab>",
-    -- Accept word
-    accept_word = "<C-Right>",
-    -- Dismiss suggestion
-    dismiss = "<C-]>",
-    -- Trigger suggestion manually
-    trigger = "<C-Space>",
-    -- Quick actions (visual mode)
-    explain = "<leader>ae",
-    refactor = "<leader>ar",
-    fix = "<leader>af",
-    document = "<leader>ad",
-    test = "<leader>at",
-  },
 }
 
-M.config = default_config
-
----Setup MarunochiAI plugin
----@param opts MarunochiConfig|nil User configuration
 function M.setup(opts)
-  M.config = vim.tbl_deep_extend("force", default_config, opts or {})
+  M.config = vim.tbl_extend("force", M.config, opts or {})
 
-  -- Load modules
+  -- Setup API
   local api = require("marunochiAI.api")
-  local chat = require("marunochiAI.chat")
-  local inline = require("marunochiAI.inline")
-  local ghost = require("marunochiAI.ghost")
-  local search = require("marunochiAI.search")
-
-  -- Initialize API
   api.setup(M.config)
 
-  -- Setup ghost text
-  if M.config.ghost_text then
-    ghost.setup({
-      debounce_ms = M.config.ghost_debounce,
-      trigger_on_insert = true,
-    })
-  end
+  local chat = require("marunochiAI.chat")
 
-  -- ═══════════════════════════════════════════════════════════════════
-  -- KEYMAPS (Cursor/Copilot style)
-  -- ═══════════════════════════════════════════════════════════════════
+  -- ════════════════════════════════════════════════════════════
+  -- KEYMAPS
+  -- ════════════════════════════════════════════════════════════
 
-  local km = M.config.keymaps
+  -- Toggle chat: <leader>ac
+  vim.keymap.set("n", "<leader>ac", chat.toggle, { desc = "AI Chat" })
 
-  -- Inline Edit: <leader>ai (like Cursor's Cmd+K)
-  -- Works in normal mode (edit current line) and visual mode (edit selection)
-  vim.keymap.set({ "n", "v" }, km.inline_edit, function()
-    inline.start_inline_edit()
-  end, { desc = "MarunochiAI: Inline Edit" })
+  -- Code actions (visual mode)
+  vim.keymap.set("v", "<leader>ae", function()
+    M.action("explain")
+  end, { desc = "AI Explain" })
 
-  -- Toggle Chat: <leader>ac
-  vim.keymap.set("n", km.toggle_chat, function()
-    chat.toggle_chat()
-  end, { desc = "MarunochiAI: Toggle Chat" })
+  vim.keymap.set("v", "<leader>ar", function()
+    M.action("refactor")
+  end, { desc = "AI Refactor" })
 
-  -- Ghost Text: Tab to accept
-  vim.keymap.set("i", km.accept_completion, function()
-    if not ghost.accept() then
-      -- Fall back to normal tab
-      return vim.api.nvim_replace_termcodes("<Tab>", true, false, true)
-    end
-  end, { expr = true, desc = "MarunochiAI: Accept Completion" })
+  vim.keymap.set("v", "<leader>af", function()
+    M.action("fix")
+  end, { desc = "AI Fix" })
 
-  -- Ghost Text: Ctrl+Right to accept word
-  vim.keymap.set("i", km.accept_word, function()
-    ghost.accept_word()
-  end, { desc = "MarunochiAI: Accept Word" })
+  -- ════════════════════════════════════════════════════════════
+  -- COMMANDS
+  -- ════════════════════════════════════════════════════════════
 
-  -- Ghost Text: Dismiss
-  vim.keymap.set("i", km.dismiss, function()
-    ghost.dismiss()
-  end, { desc = "MarunochiAI: Dismiss Suggestion" })
-
-  -- Ghost Text: Manual trigger
-  vim.keymap.set("i", km.trigger, function()
-    ghost.trigger()
-  end, { desc = "MarunochiAI: Trigger Suggestion" })
-
-  -- Toggle ghost text
-  vim.keymap.set("n", "<leader>ag", function()
-    ghost.toggle()
-  end, { desc = "MarunochiAI: Toggle Ghost Text" })
-
-  -- ═══════════════════════════════════════════════════════════════════
-  -- QUICK ACTIONS (Visual Mode)
-  -- ═══════════════════════════════════════════════════════════════════
-
-  vim.keymap.set("v", km.explain, function()
-    vim.cmd("normal! ")
-    inline.quick_action("explain")
-  end, { desc = "MarunochiAI: Explain Selection" })
-
-  vim.keymap.set("v", km.refactor, function()
-    vim.cmd("normal! ")
-    inline.quick_action("refactor")
-  end, { desc = "MarunochiAI: Refactor Selection" })
-
-  vim.keymap.set("v", km.fix, function()
-    vim.cmd("normal! ")
-    inline.quick_action("fix")
-  end, { desc = "MarunochiAI: Fix Selection" })
-
-  vim.keymap.set("v", km.document, function()
-    vim.cmd("normal! ")
-    inline.quick_action("document")
-  end, { desc = "MarunochiAI: Document Selection" })
-
-  vim.keymap.set("v", km.test, function()
-    vim.cmd("normal! ")
-    inline.quick_action("test")
-  end, { desc = "MarunochiAI: Generate Tests" })
-
-  -- ═══════════════════════════════════════════════════════════════════
-  -- USER COMMANDS
-  -- ═══════════════════════════════════════════════════════════════════
-
-  -- Main chat command
-  vim.api.nvim_create_user_command("MarunochiChat", function(cmd_opts)
-    if cmd_opts.args ~= "" then
-      chat.open_chat(cmd_opts.args)
+  vim.api.nvim_create_user_command("AI", function(cmd)
+    if cmd.args == "" then
+      chat.toggle()
     else
-      chat.toggle_chat()
+      chat.open()
+      chat.send(cmd.args)
     end
-  end, { nargs = "*", desc = "Open MarunochiAI chat" })
+  end, { nargs = "*", desc = "MarunochiAI" })
 
-  -- Inline edit command
-  vim.api.nvim_create_user_command("MarunochiEdit", function()
-    inline.start_inline_edit()
-  end, { range = true, desc = "Inline edit with AI" })
-
-  -- Quick actions
-  vim.api.nvim_create_user_command("MarunochiExplain", function()
-    inline.quick_action("explain")
-  end, { range = true, desc = "Explain selected code" })
-
-  vim.api.nvim_create_user_command("MarunochiRefactor", function()
-    inline.quick_action("refactor")
-  end, { range = true, desc = "Refactor selected code" })
-
-  vim.api.nvim_create_user_command("MarunochiDebug", function()
-    inline.quick_action("fix")
-  end, { range = true, desc = "Fix/debug selected code" })
-
-  vim.api.nvim_create_user_command("MarunochiTests", function()
-    inline.quick_action("test")
-  end, { range = true, desc = "Generate tests for selection" })
-
-  -- Search
-  vim.api.nvim_create_user_command("MarunochiSearch", function(cmd_opts)
-    if cmd_opts.args == "" then
-      vim.ui.input({ prompt = "Search: " }, function(query)
-        if query and query ~= "" then
-          search.search_codebase(query)
-        end
-      end)
-    else
-      search.search_codebase(cmd_opts.args)
-    end
-  end, { nargs = "*", desc = "Semantic code search" })
-
-  -- Index
-  vim.api.nvim_create_user_command("MarunochiIndex", function(cmd_opts)
-    local path = cmd_opts.args ~= "" and cmd_opts.args or vim.fn.getcwd()
-    search.index_codebase(path, true)
-  end, { nargs = "?", desc = "Index codebase" })
-
-  -- Ghost text toggle
-  vim.api.nvim_create_user_command("MarunochiGhost", function()
-    ghost.toggle()
-  end, { desc = "Toggle ghost text completions" })
-
-  -- ═══════════════════════════════════════════════════════════════════
-  -- AUTO-INDEX (optional)
-  -- ═══════════════════════════════════════════════════════════════════
-
-  if M.config.auto_index then
-    vim.defer_fn(function()
-      search.index_codebase(vim.fn.getcwd(), false)
-    end, 2000)
-  end
-
-  -- ═══════════════════════════════════════════════════════════════════
-  -- NOTIFY
-  -- ═══════════════════════════════════════════════════════════════════
-
-  vim.notify("MarunochiAI loaded | <leader>ai: Edit | <leader>ac: Chat | Tab: Accept", vim.log.levels.INFO)
+  vim.notify("MarunochiAI: <leader>ac = chat", vim.log.levels.INFO)
 end
 
----Get configuration
----@return MarunochiConfig
-function M.get_config()
-  return M.config
+-- Perform action on selected code
+function M.action(action_type)
+  -- Get selection
+  local start_line = vim.fn.line("'<")
+  local end_line = vim.fn.line("'>")
+
+  if start_line == 0 then
+    vim.notify("Select code first", vim.log.levels.WARN)
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
+  local code = table.concat(lines, "\n")
+  local filetype = vim.bo.filetype
+
+  local prompts = {
+    explain = "Explain this code:",
+    refactor = "Refactor this code to be cleaner:",
+    fix = "Fix any bugs in this code:",
+  }
+
+  local chat = require("marunochiAI.chat")
+  chat.send_with_code(prompts[action_type] or "Help with:", code, filetype)
 end
 
 return M
