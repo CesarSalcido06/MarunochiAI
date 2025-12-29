@@ -19,10 +19,10 @@ local default_config = {
   ghost_text = true,
   ghost_debounce = 300,
   keymaps = {
-    -- Inline edit (like Cursor Cmd+K / Copilot Cmd+I)
-    inline_edit = "<C-i>",
-    -- Toggle chat panel (like Cursor Cmd+L)
-    toggle_chat = "<C-l>",
+    -- Inline edit (like Cursor Cmd+K)
+    inline_edit = "<leader>ai",
+    -- Toggle chat panel
+    toggle_chat = "<leader>ac",
     -- Accept ghost completion
     accept_completion = "<Tab>",
     -- Accept word
@@ -71,13 +71,13 @@ function M.setup(opts)
 
   local km = M.config.keymaps
 
-  -- Inline Edit: Ctrl+I (like Cursor's Cmd+K)
+  -- Inline Edit: <leader>ai (like Cursor's Cmd+K)
   -- Works in normal mode (edit current line) and visual mode (edit selection)
   vim.keymap.set({ "n", "v" }, km.inline_edit, function()
     inline.start_inline_edit()
   end, { desc = "MarunochiAI: Inline Edit" })
 
-  -- Toggle Chat: Ctrl+L (like Cursor's Cmd+L)
+  -- Toggle Chat: <leader>ac
   vim.keymap.set("n", km.toggle_chat, function()
     chat.toggle_chat()
   end, { desc = "MarunochiAI: Toggle Chat" })
@@ -212,7 +212,7 @@ function M.setup(opts)
   -- NOTIFY
   -- ═══════════════════════════════════════════════════════════════════
 
-  vim.notify("MarunochiAI loaded | Ctrl+I: Edit | Ctrl+L: Chat | Tab: Accept", vim.log.levels.INFO)
+  vim.notify("MarunochiAI loaded | <leader>ai: Edit | <leader>ac: Chat | Tab: Accept", vim.log.levels.INFO)
 end
 
 ---Get configuration

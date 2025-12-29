@@ -13,7 +13,8 @@ M.is_processing = false
 -- Configuration
 local config = {
   width = 80,
-  position = "right", -- "right", "left", "float"
+  height = 30,
+  position = "float", -- "float" (default), "right", "left"
 }
 
 ---Create chat buffer
@@ -132,26 +133,21 @@ function M.open(initial_message)
     M.bufnr = create_buffer()
   end
 
-  -- Open split
-  if config.position == "float" then
-    local width = math.min(config.width, vim.o.columns - 10)
-    local height = math.min(30, vim.o.lines - 10)
-    M.winnr = vim.api.nvim_open_win(M.bufnr, true, {
-      relative = "editor",
-      row = math.floor((vim.o.lines - height) / 2),
-      col = math.floor((vim.o.columns - width) / 2),
-      width = width,
-      height = height,
-      style = "minimal",
-      border = "rounded",
-    })
-  else
-    local cmd = config.position == "right" and "botright vsplit" or "topleft vsplit"
-    vim.cmd(cmd)
-    M.winnr = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(M.winnr, M.bufnr)
-    vim.api.nvim_win_set_width(M.winnr, config.width)
-  end
+  -- Open as floating window (default - avoids layout conflicts)
+  local width = math.min(config.width, vim.o.columns - 8)
+  local height = math.min(config.height, vim.o.lines - 8)
+
+  M.winnr = vim.api.nvim_open_win(M.bufnr, true, {
+    relative = "editor",
+    row = math.floor((vim.o.lines - height) / 2) - 1,
+    col = math.floor((vim.o.columns - width) / 2),
+    width = width,
+    height = height,
+    style = "minimal",
+    border = "rounded",
+    title = " MarunochiAI ",
+    title_pos = "center",
+  })
 
   -- Window options
   vim.wo[M.winnr].wrap = true

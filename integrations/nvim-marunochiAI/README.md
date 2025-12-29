@@ -60,12 +60,12 @@ use {
 
 ## Keybindings
 
-### Core (Cursor/Copilot Style)
+### Core
 
 | Key | Mode | Action |
 |-----|------|--------|
-| `Ctrl+I` | Normal/Visual | **Inline edit** - Edit selection or generate at cursor |
-| `Ctrl+L` | Normal | **Toggle chat** panel |
+| `<leader>ai` | Normal/Visual | **Inline edit** - Edit selection or generate at cursor |
+| `<leader>ac` | Normal | **Toggle chat** panel (floating window) |
 | `Tab` | Insert | **Accept** ghost completion |
 | `Ctrl+Right` | Insert | Accept word only |
 | `Ctrl+]` | Insert | Dismiss suggestion |
@@ -122,8 +122,8 @@ require("marunochiAI").setup({
 
   -- Keymaps (set to false to disable any)
   keymaps = {
-    inline_edit = "<C-i>",       -- Ctrl+I
-    toggle_chat = "<C-l>",       -- Ctrl+L
+    inline_edit = "<leader>ai",  -- Inline edit
+    toggle_chat = "<leader>ac",  -- Chat panel
     accept_completion = "<Tab>",
     accept_word = "<C-Right>",
     dismiss = "<C-]>",
@@ -152,18 +152,18 @@ Press **Tab** to accept, **Ctrl+]** to dismiss.
 
 ### 2. Inline Edit (Cursor-style)
 
-Select code and press **Ctrl+I**:
+Select code and press **`<leader>ai`**:
 
 ```
 1. Select code (or cursor on line)
-2. Press Ctrl+I
+2. Press <leader>ai
 3. Type instruction: "add error handling"
 4. Accept/Preview/Cancel
 ```
 
 ### 3. Chat Panel
 
-Press **Ctrl+L** to open chat:
+Press **`<leader>ac`** to open chat (floating window):
 
 ```
 # MarunochiAI Chat
