@@ -15,8 +15,10 @@ function M.setup(opts)
   local chat = require("marunochiAI.chat")
   local edit = require("marunochiAI.edit")
   local complete = require("marunochiAI.complete")
+  local search = require("marunochiAI.search")
 
   api.setup(M.config)
+  search.setup()
 
   -- Setup ghost completions
   if M.config.ghost_text then
@@ -55,6 +57,13 @@ function M.setup(opts)
 
   -- Toggle ghost text: <leader>at
   vim.keymap.set("n", "<leader>at", complete.toggle, { desc = "AI: Toggle completions" })
+
+  -- Semantic search: <leader>as
+  vim.keymap.set("n", "<leader>as", search.search, { desc = "AI: Search codebase" })
+  vim.keymap.set("n", "<leader>aS", search.search_context, { desc = "AI: Search word under cursor" })
+
+  -- Index project: <leader>ai
+  vim.keymap.set("n", "<leader>ai", function() search.index_project() end, { desc = "AI: Index project" })
 
   -- Code actions
   vim.keymap.set("v", "<leader>ax", function()
@@ -107,7 +116,7 @@ function M.setup(opts)
 
   -- ══════════════════════════════════════════════════════════════════
 
-  vim.notify("MarunochiAI ready | <leader>ac=Chat | <leader>ae=Edit | Tab=Accept", vim.log.levels.INFO)
+  vim.notify("MarunochiAI ready | <leader>ac=Chat | <leader>as=Search | Tab=Accept", vim.log.levels.INFO)
 end
 
 return M
