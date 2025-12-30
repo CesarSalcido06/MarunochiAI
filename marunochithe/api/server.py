@@ -1,5 +1,6 @@
 """FastAPI server with OpenAI-compatible endpoints."""
 
+import json
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -258,7 +259,7 @@ async def _stream_completion(
                 ],
             }
 
-            yield f"data: {chunk_data}\n\n"
+            yield f"data: {json.dumps(chunk_data)}\n\n"
 
         # Send final chunk
         final_chunk = {
@@ -274,13 +275,13 @@ async def _stream_completion(
                 }
             ],
         }
-        yield f"data: {final_chunk}\n\n"
+        yield f"data: {json.dumps(final_chunk)}\n\n"
         yield "data: [DONE]\n\n"
 
     except Exception as e:
         logger.error(f"Streaming failed: {e}")
         error_chunk = {"error": str(e)}
-        yield f"data: {error_chunk}\n\n"
+        yield f"data: {json.dumps(error_chunk)}\n\n"
 
 
 @app.post("/v1/codebase/index", tags=["Code Understanding"])
