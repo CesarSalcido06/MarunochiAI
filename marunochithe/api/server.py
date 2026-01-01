@@ -1,6 +1,7 @@
 """FastAPI server with OpenAI-compatible endpoints."""
 
 import json
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -92,7 +93,9 @@ async def lifespan(app: FastAPI):
     # Initialize BenchAI client for multi-agent integration
     try:
         logger.info("Initializing BenchAI client...")
-        benchai_client = BenchAIClient(benchai_url="http://localhost:8085")
+        benchai_url = os.environ.get("BENCHAI_URL", "http://localhost:8085")
+        logger.info(f"Connecting to BenchAI at: {benchai_url}")
+        benchai_client = BenchAIClient(benchai_url=benchai_url)
 
         # Check if BenchAI is available
         benchai_available = await benchai_client.health_check()
