@@ -2,45 +2,52 @@
 
 **Fast, Local, Intelligent Coding Assistant**
 
-**Version**: 1.0.0 | **Status**: Production Ready ✅
+**Version**: 0.4.0 | **Status**: Production Ready ✅
 
 MarunochiAI is a local-first, AI-powered coding assistant running on your M4 Pro MacBook. Features intelligent dual-model routing, OpenAI-compatible API, and full multi-agent integration with BenchAI.
 
 ---
 
-## ⚡ Key Features (v1.0.0)
+## ⚡ Key Features (v0.4.0)
 
-✅ **Working Now**:
+✅ **Core Features**:
 - **🏎️ Blazing Fast**: 27.6 tok/s (7B model), 0.23s first token
 - **🧠 Intelligent**: Qwen2.5-Coder beats GPT-4 on HumanEval (88.4% vs 87.1%)
 - **🤖 Dual Models**: Auto-routing (7B fast, 14B powerful)
 - **🔌 Multi-Agent**: Full A2A Protocol v0.3 integration with BenchAI
 - **🔒 Private**: 100% local, no data leaves your machine
 - **💰 Cost-Effective**: ~$3/month electricity vs $20+/month cloud APIs
-- **✅ Production Ready**: 100% stability, comprehensive testing
+
+✅ **New in v0.4.0**:
+- **📊 Observability**: Correlation IDs, metrics, request callbacks
+- **🛡️ Resilience**: Circuit breakers, retry with exponential backoff
+- **💾 Local Storage**: SQLite persistence for A2A sync operations
+- **⚙️ Centralized Config**: Environment-based configuration management
+- **🌐 Multi-Machine**: Network-aware agent discovery (dynamic URLs)
 
 🚧 **Coming Soon** (Optional Enhancements):
-- **📚 Learning**: Fine-tuning pipeline (v4.0)
-- **🔍 Deep Understanding**: AST parsing + semantic search (v2.0)
-- **🤖 Autonomous**: Multi-step agentic execution (v3.0)
+- **📚 Learning**: Fine-tuning pipeline (v1.0)
+- **🔍 Deep Understanding**: AST parsing + semantic search (v0.5)
+- **🤖 Autonomous**: Multi-step agentic execution (v0.6)
 
 ---
 
 ## 🎯 What Makes It Powerful
 
-**v1.0.0 delivers**:
+**v0.4.0 delivers**:
 1. ✅ **Speed** - Local inference (0.2-3s response time)
 2. ✅ **Intelligence** - SOTA models (88.4% HumanEval)
 3. ✅ **Smart Routing** - Auto-select 7B (fast) or 14B (quality)
 4. ✅ **Integration** - OpenAI API + BenchAI multi-agent
 5. ✅ **Privacy** - 100% local (no cloud)
-6. ✅ **Stability** - Production-grade (100% test pass rate)
-7. ✅ **Cost** - Electricity only
+6. ✅ **Resilience** - Circuit breakers, retry logic, graceful degradation
+7. ✅ **Observability** - Correlation IDs, metrics, structured logging
+8. ✅ **Multi-Machine** - Works across network with dynamic URL discovery
 
 **Future versions add**:
-- Learning - Continuous fine-tuning (v4.0)
-- Understanding - Deep codebase analysis (v2.0)
-- Autonomy - Multi-step execution (v3.0)
+- Deep Understanding - AST parsing + semantic search (v0.5)
+- Autonomy - Multi-step execution (v0.6)
+- Learning - Continuous fine-tuning (v1.0)
 
 ---
 
@@ -146,27 +153,38 @@ curl -X POST http://localhost:8765/v1/chat/completions \
 
 ---
 
-## 🏗️ Architecture (v1.0.0)
+## 🏗️ Architecture (v0.4.0)
 
 ```
-MarunochiAI v1.0.0 (FastAPI + Python)
+MarunochiAI v0.4.0 (FastAPI + Python)
 ├── Inference Layer (Ollama: 7B fast, 14B powerful)
 │   ├── Intelligent routing (simple→7B, complex→14B)
 │   ├── Streaming support (SSE)
 │   └── OpenAI-compatible API
 ├── A2A Integration (BenchAI multi-agent)
-│   ├── Agent discovery
-│   ├── Task delegation
-│   └── Bidirectional sync
+│   ├── Dynamic agent discovery (network-aware URLs)
+│   ├── Task delegation with circuit breakers
+│   └── Bidirectional sync with local storage
+├── Resilience Layer (NEW in v0.4.0)
+│   ├── Circuit breakers (per-service)
+│   ├── Retry with exponential backoff
+│   └── Graceful degradation
+├── Observability Layer (NEW in v0.4.0)
+│   ├── Correlation IDs for request tracing
+│   ├── Metrics collection (latency, throughput)
+│   └── Structured logging with Loguru
+├── Storage Layer (NEW in v0.4.0)
+│   ├── SQLite for experiences/knowledge
+│   └── A2A sync persistence
 ├── CLI Interface (Typer + Rich)
 └── Basic Tools (file ops, git, terminal)
 ```
 
-**Future Architecture** (v2.0+):
+**Future Architecture** (v0.5+):
 ```
-+ Code Understanding (Tree-sitter AST + ChromaDB semantic search)  [v2.0]
-+ Agentic Engine (task planning, self-correction)                  [v3.0]
-+ Fine-Tuning Pipeline (QLoRA continuous learning)                  [v4.0]
++ Code Understanding (Tree-sitter AST + ChromaDB semantic search)  [v0.5]
++ Agentic Engine (task planning, self-correction)                  [v0.6]
++ Fine-Tuning Pipeline (QLoRA continuous learning)                  [v1.0]
 ```
 
 ---
@@ -266,7 +284,7 @@ See [A2A Integration Guide](docs/A2A-INTEGRATION.md) for complete documentation.
 
 ## 🧪 Development Status
 
-### ✅ Phase 1: MVP Foundation (v1.0.0) - **COMPLETE**
+### ✅ Phase 1: MVP Foundation (v0.3.0) - **COMPLETE**
 - [x] Project structure
 - [x] Ollama inference engine (7B/14B routing)
 - [x] Basic tools (file ops, git, terminal)
@@ -274,35 +292,32 @@ See [A2A Integration Guide](docs/A2A-INTEGRATION.md) for complete documentation.
 - [x] CLI interface
 - [x] A2A Protocol v0.3 integration
 - [x] GPU optimization (2.3x speedup)
-- [x] Comprehensive testing (100% pass rate)
-- [x] Production documentation
 
-### 🚧 Phase 2: Code Understanding (v2.0) - **PLANNED** (Optional)
+### ✅ Phase 1.5: Production Hardening (v0.4.0) - **COMPLETE**
+- [x] Centralized configuration (config.py)
+- [x] Observability middleware (correlation IDs, metrics)
+- [x] Resilience layer (circuit breakers, retry logic)
+- [x] Local storage for A2A sync (SQLite)
+- [x] Dynamic URL discovery for multi-machine deployment
+- [x] BenchAI client with circuit breaker integration
+
+### 🚧 Phase 2: Code Understanding (v0.5) - **PLANNED**
 - [ ] Tree-sitter AST parsing
 - [ ] ChromaDB semantic indexing
 - [ ] Hierarchical code chunking
 - [ ] Hybrid search (Vector + BM25 + Graph)
 - [ ] Incremental file watching
 
-**Status**: Fully planned (1,350 LOC spec ready), not started
-**Timeline**: Optional enhancement (Week 2-3)
-
-### 🚧 Phase 3: Agentic Capabilities (v3.0) - **PLANNED** (Optional)
+### 🚧 Phase 3: Agentic Capabilities (v0.6) - **PLANNED**
 - [ ] Multi-step task planning
 - [ ] Self-correction loops
 - [ ] Tool orchestration
 - [ ] Autonomous debugging
 
-**Status**: Design phase
-**Timeline**: Optional enhancement (Week 4-5)
-
-### 🚧 Phase 4: Fine-Tuning (v4.0) - **PLANNED** (Optional)
+### 🚧 Phase 4: Fine-Tuning (v1.0) - **PLANNED**
 - [ ] QLoRA fine-tuning pipeline
 - [ ] Continuous learning from user code
 - [ ] Domain-specific adaptation
-
-**Status**: Research phase
-**Timeline**: Optional enhancement (Month 2+)
 
 ---
 
@@ -322,18 +337,53 @@ See [A2A Integration Guide](docs/A2A-INTEGRATION.md) for complete documentation.
 
 ## 📝 Configuration
 
-Optional `.env` file:
+Create a `.env` file in the project root:
 
 ```bash
 # Ollama configuration
 OLLAMA_HOST=http://localhost:11434
 
-# MarunochiAI configuration
+# MarunochiAI server configuration
+MARUNOCHITHE_HOST=0.0.0.0        # Bind to all interfaces for network access
 MARUNOCHITHE_PORT=8765
 MARUNOCHITHE_LOG_LEVEL=INFO
 
-# BenchAI integration (optional)
-BENCHAI_URL=http://localhost:8085
+# BenchAI integration (REQUIRED for multi-agent)
+BENCHAI_URL=http://192.168.0.213:8085   # BenchAI server address
+BENCHAI_AGENT_ID=marunochithe-m4pro     # Unique agent identifier
+```
+
+### Multi-Machine Deployment
+
+When running MarunochiAI and BenchAI on different machines:
+
+```bash
+# On MarunochiAI machine (e.g., M4 Mac at 192.168.0.182)
+MARUNOCHITHE_HOST=0.0.0.0
+BENCHAI_URL=http://192.168.0.213:8085  # Points to BenchAI machine
+
+# On BenchAI machine (e.g., 192.168.0.213)
+MARUNOCHI_URL=http://192.168.0.182:8765  # Points to MarunochiAI machine
+```
+
+**Dynamic URL Discovery**: MarunochiAI automatically returns correct network URLs in agent discovery (`/.well-known/agent.json`) based on the incoming request's host header.
+
+### New v0.4.0 Endpoints
+
+```bash
+# Observability
+curl http://localhost:8765/v1/observability/health
+curl http://localhost:8765/v1/observability/metrics
+
+# Resilience (circuit breaker status)
+curl http://localhost:8765/v1/resilience/circuits
+
+# Storage stats
+curl http://localhost:8765/v1/storage/stats
+
+# A2A Sync
+curl "http://localhost:8765/v1/sync/share?requester=benchai&sync_type=experience"
+curl -X POST http://localhost:8765/v1/sync/receive -d '{"from_agent":"benchai",...}'
 ```
 
 ---
@@ -432,9 +482,9 @@ curl http://localhost:8765/health
 
 ---
 
-**MarunochiAI v1.0.0 - Production Ready** ✅
+**MarunochiAI v0.4.0 - Production Ready** ✅
 
-Fast, local, intelligent coding assistant. Ready to use today!
+Fast, local, intelligent coding assistant with resilience, observability, and multi-machine support.
 
 **Where the best AI agents sit together on the bench** 🪑
 
