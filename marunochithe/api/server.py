@@ -13,6 +13,13 @@ from loguru import logger
 from ..config import load_settings, get_settings
 from ..storage import get_storage, init_storage
 from ..resilience import validate_connectivity_at_startup, get_all_circuits
+from ..observability import (
+    CorrelationIdMiddleware,
+    RequestLoggingMiddleware,
+    get_metrics,
+    execute_callback,
+    get_correlation_id,
+)
 from ..core.inference import InferenceEngine, ModelSize
 from ..code_understanding import (
     CodeParser,
@@ -165,9 +172,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MarunochiAI",
     description="The most powerful self-hosted coding assistant with A2A integration",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
+
+# Add observability middleware (order matters: correlation ID first)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 
 
 @app.get("/health")
@@ -183,7 +194,7 @@ async def health_check() -> HealthResponse:
                 ModelSize.FAST,
                 ModelSize.POWERFUL,
             ],
-            version="0.3.0",
+            version="0.4.0",
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -191,7 +202,7 @@ async def health_check() -> HealthResponse:
             status="unhealthy",
             ollama_available=False,
             models_loaded=[],
-            version="0.3.0",
+            version="0.4.0",
         )
 
 
@@ -241,6 +252,99 @@ async def circuit_status() -> Dict:
             "closed": sum(1 for c in circuits.values() if c.get("state") == "closed"),
         }
     }
+
+
+@app.get("/v1/observability/metrics", tags=["Observability"])
+async def observability_metrics() -> Dict:
+    """
+    Get comprehensive observability metrics.
+
+    Returns:
+    - Request counts and latencies by endpoint
+    - Error rates
+    - A2A task statistics
+    - BenchAI client metrics
+    - Recent requests (last 10)
+    - Uptime information
+    """
+    metrics = get_metrics()
+    return {
+        "status": "ok",
+        **metrics.get_stats()
+    }
+
+
+@app.get("/v1/observability/health", tags=["Observability"])
+async def observability_health() -> Dict:
+    """
+    Get detailed health status including all subsystems.
+
+    Provides a comprehensive view of system health including:
+    - Ollama status
+    - BenchAI connectivity
+    - Storage status
+    - Circuit breaker states
+    """
+    health_status = {
+        "status": "healthy",
+        "version": "0.4.0",
+        "components": {}
+    }
+
+    # Check Ollama
+    try:
+        ollama_healthy = await engine.health_check() if engine else False
+        health_status["components"]["ollama"] = {
+            "status": "healthy" if ollama_healthy else "unhealthy",
+            "message": "Connected" if ollama_healthy else "Not available"
+        }
+    except Exception as e:
+        health_status["components"]["ollama"] = {
+            "status": "unhealthy",
+            "message": str(e)
+        }
+
+    # Check BenchAI
+    try:
+        benchai_healthy = await benchai_client.health_check() if benchai_client else False
+        circuit = benchai_client.get_circuit_status() if benchai_client else {}
+        health_status["components"]["benchai"] = {
+            "status": "healthy" if benchai_healthy else "degraded",
+            "message": "Connected" if benchai_healthy else "Not available",
+            "circuit_state": circuit.get("state", "unknown")
+        }
+    except Exception as e:
+        health_status["components"]["benchai"] = {
+            "status": "unhealthy",
+            "message": str(e)
+        }
+
+    # Check Storage
+    try:
+        storage = get_storage()
+        stats = await storage.get_stats()
+        health_status["components"]["storage"] = {
+            "status": "healthy",
+            "experiences": stats.get("experiences_count", 0),
+            "knowledge": stats.get("knowledge_count", 0),
+            "patterns": stats.get("patterns_count", 0)
+        }
+    except Exception as e:
+        health_status["components"]["storage"] = {
+            "status": "unhealthy",
+            "message": str(e)
+        }
+
+    # Determine overall status
+    statuses = [c.get("status") for c in health_status["components"].values()]
+    if "unhealthy" in statuses:
+        health_status["status"] = "degraded"
+    elif all(s == "healthy" for s in statuses):
+        health_status["status"] = "healthy"
+    else:
+        health_status["status"] = "degraded"
+
+    return health_status
 
 
 @app.post("/v1/chat/completions", response_model=None)
@@ -656,7 +760,7 @@ async def share_sync_data(
 
 
 @app.post("/v1/a2a/task", tags=["A2A Integration"])
-async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
+async def receive_task(request: A2ATaskRequest, req: Request) -> A2ATaskResponse:
     """
     Receive a task from BenchAI or other agents.
 
@@ -670,10 +774,12 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
         Task result or status
     """
     task_id = f"maru-{uuid.uuid4().hex[:12]}"
+    correlation_id = getattr(req.state, "correlation_id", task_id)
+    metrics = get_metrics()
 
-    # Log task receipt
+    # Log task receipt with correlation ID
     logger.info(
-        f"Received task from {request.from_agent}: "
+        f"[{correlation_id}] Received A2A task from {request.from_agent}: "
         f"{request.task_description[:100]}..."
     )
 
@@ -737,7 +843,10 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
             except Exception as store_err:
                 logger.warning(f"Failed to store experience: {store_err}")
 
-            return A2ATaskResponse(
+            # Record metrics
+            metrics.record_a2a_task("completed")
+
+            response_data = A2ATaskResponse(
                 task_id=task_id,
                 status="completed",
                 result={
@@ -755,6 +864,16 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
                     "count": len(results)
                 }
             )
+
+            # Execute callback if provided
+            if request.callback_url:
+                await execute_callback(
+                    callback_url=request.callback_url,
+                    result=response_data.model_dump(),
+                    correlation_id=correlation_id
+                )
+
+            return response_data
 
         elif request.task_type in ["code_completion", "code_review", "debugging", "refactoring"]:
             # Use chat completion with context
@@ -806,11 +925,24 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
             except Exception as store_err:
                 logger.warning(f"Failed to store experience: {store_err}")
 
-            return A2ATaskResponse(
+            # Record metrics
+            metrics.record_a2a_task("completed")
+
+            response_data = A2ATaskResponse(
                 task_id=task_id,
                 status="completed",
                 result={"response": response}
             )
+
+            # Execute callback if provided
+            if request.callback_url:
+                await execute_callback(
+                    callback_url=request.callback_url,
+                    result=response_data.model_dump(),
+                    correlation_id=correlation_id
+                )
+
+            return response_data
 
         else:
             return A2ATaskResponse(
@@ -820,7 +952,10 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
             )
 
     except Exception as e:
-        logger.error(f"Task processing failed: {e}")
+        logger.error(f"[{correlation_id}] Task processing failed: {e}")
+
+        # Record failure metrics
+        metrics.record_a2a_task("failed")
 
         # Report failure to BenchAI
         if benchai_client:
@@ -834,11 +969,21 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
                 description=f"Failed {request.task_type}: {str(e)}"
             )
 
-        return A2ATaskResponse(
+        response_data = A2ATaskResponse(
             task_id=task_id,
             status="failed",
             message=str(e)
         )
+
+        # Execute callback on failure too
+        if request.callback_url:
+            await execute_callback(
+                callback_url=request.callback_url,
+                result=response_data.model_dump(),
+                correlation_id=correlation_id
+            )
+
+        return response_data
 
 
 @app.get("/.well-known/agent.json", tags=["A2A Integration"])
@@ -883,7 +1028,9 @@ async def agent_card(request: Request):
             "sync_share": f"{base_url}/v1/sync/share",
             "a2a_task": f"{base_url}/v1/a2a/task",
             "circuits": f"{base_url}/v1/resilience/circuits",
-            "storage_stats": f"{base_url}/v1/storage/stats"
+            "storage_stats": f"{base_url}/v1/storage/stats",
+            "metrics": f"{base_url}/v1/observability/metrics",
+            "health_detailed": f"{base_url}/v1/observability/health"
         },
         "status": "online",
         "load": 0.0
@@ -895,7 +1042,7 @@ async def root():
     """Root endpoint."""
     return {
         "name": "MarunochiAI",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "description": "The most powerful self-hosted coding assistant",
         "endpoints": {
             "health": "/health",
@@ -906,6 +1053,8 @@ async def root():
             "codebase_refresh": "/v1/codebase/refresh",
             "storage_stats": "/v1/storage/stats",
             "circuits": "/v1/resilience/circuits",
+            "metrics": "/v1/observability/metrics",
+            "health_detailed": "/v1/observability/health",
             "agent_card": "/.well-known/agent.json",
             "sync_receive": "/v1/sync/receive",
             "sync_share": "/v1/sync/share",
