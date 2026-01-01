@@ -1,10 +1,17 @@
 """Client for reporting to BenchAI collective learning system."""
 
+import asyncio
 import aiohttp
 from typing import Dict, Any, Optional
 from loguru import logger
 
 from ..config import get_settings, get_benchai_url, get_agent_id
+from ..resilience import (
+    get_circuit,
+    CircuitOpenError,
+    with_retry,
+    check_connectivity,
+)
 
 
 class BenchAIClient:
@@ -30,10 +37,22 @@ class BenchAIClient:
         self.base_url = benchai_url or get_benchai_url()
         self.agent_id = agent_id or get_agent_id()
 
+        # Circuit breaker for this BenchAI connection
+        self._circuit = get_circuit(
+            name="benchai",
+            failure_threshold=5,
+            recovery_timeout=30.0,
+            half_open_max_calls=1
+        )
+
         logger.info(
             f"[BenchAI Client] Initialized with URL={self.base_url}, "
             f"agent_id={self.agent_id}"
         )
+
+    def get_circuit_status(self) -> dict:
+        """Get current circuit breaker status."""
+        return self._circuit.get_status()
 
     async def report_task_completion(
         self,
@@ -54,45 +73,68 @@ class BenchAIClient:
         Returns:
             True if report was successful, False otherwise
         """
+        # Check circuit breaker first
+        if not self._circuit.can_execute():
+            logger.warning(
+                f"[BenchAI] Circuit OPEN - skipping report for {task_type}"
+            )
+            return False
+
         try:
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "agent_id": self.agent_id,
-                    "contribution_type": "experience",
-                    "content": description or f"Task: {task_type}, Success: {success}",
-                    "domain": "coding",
-                    "quality_score": 0.9 if success else 0.3,
-                    "metadata": {
-                        "task_type": task_type,
-                        "success": success,
-                        **metrics
-                    }
-                }
-
-                async with session.post(
-                    f"{self.base_url}/v1/learning/collective/contribute",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as response:
-                    if response.status == 200:
-                        logger.info(
-                            f"Reported task completion to BenchAI: "
-                            f"{task_type} (success={success})"
-                        )
-                        return True
-                    else:
-                        logger.warning(
-                            f"Failed to report to BenchAI: "
-                            f"HTTP {response.status}"
-                        )
-                        return False
-
-        except aiohttp.ClientError as e:
-            logger.warning(f"Could not connect to BenchAI at {self.base_url}: {e}")
+            result = await self._report_task_with_retry(
+                task_type, success, metrics, description
+            )
+            self._circuit.record_success()
+            return result
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            self._circuit.record_failure()
+            logger.warning(f"[BenchAI] Report failed (circuit: {self._circuit.state.value}): {e}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error reporting to BenchAI: {e}")
+            self._circuit.record_failure()
+            logger.error(f"[BenchAI] Unexpected error: {e}")
             return False
+
+    @with_retry(max_attempts=3, min_wait=0.5, max_wait=5.0)
+    async def _report_task_with_retry(
+        self,
+        task_type: str,
+        success: bool,
+        metrics: Dict[str, Any],
+        description: Optional[str]
+    ) -> bool:
+        """Internal method with retry logic."""
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "agent_id": self.agent_id,
+                "contribution_type": "experience",
+                "content": description or f"Task: {task_type}, Success: {success}",
+                "domain": "coding",
+                "quality_score": 0.9 if success else 0.3,
+                "metadata": {
+                    "task_type": task_type,
+                    "success": success,
+                    **metrics
+                }
+            }
+
+            async with session.post(
+                f"{self.base_url}/v1/learning/collective/contribute",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
+                if response.status == 200:
+                    logger.info(
+                        f"Reported task completion to BenchAI: "
+                        f"{task_type} (success={success})"
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        f"Failed to report to BenchAI: "
+                        f"HTTP {response.status}"
+                    )
+                    return False
 
     async def sync_with_benchai(
         self,
@@ -109,39 +151,51 @@ class BenchAIClient:
         Returns:
             Dict with sync data or None if failed
         """
+        if not self._circuit.can_execute():
+            logger.warning(f"[BenchAI] Circuit OPEN - skipping sync pull")
+            return None
+
         try:
-            async with aiohttp.ClientSession() as session:
-                params = {
-                    "requester": self.agent_id,
-                    "sync_type": sync_type,
-                    "limit": limit
-                }
-
-                async with session.get(
-                    f"{self.base_url}/v1/learning/sync/share",
-                    params=params,
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        logger.info(
-                            f"Synced {data.get('count', 0)} {sync_type} items "
-                            f"from BenchAI"
-                        )
-                        return data
-                    else:
-                        logger.warning(
-                            f"Failed to sync with BenchAI: "
-                            f"HTTP {response.status}"
-                        )
-                        return None
-
-        except aiohttp.ClientError as e:
-            logger.warning(f"Could not connect to BenchAI for sync: {e}")
+            result = await self._sync_with_retry(sync_type, limit)
+            self._circuit.record_success()
+            return result
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            self._circuit.record_failure()
+            logger.warning(f"[BenchAI] Sync failed (circuit: {self._circuit.state.value}): {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error syncing with BenchAI: {e}")
+            self._circuit.record_failure()
+            logger.error(f"[BenchAI] Unexpected sync error: {e}")
             return None
+
+    @with_retry(max_attempts=3, min_wait=0.5, max_wait=5.0)
+    async def _sync_with_retry(self, sync_type: str, limit: int) -> Optional[Dict]:
+        """Internal sync with retry logic."""
+        async with aiohttp.ClientSession() as session:
+            params = {
+                "requester": self.agent_id,
+                "sync_type": sync_type,
+                "limit": limit
+            }
+
+            async with session.get(
+                f"{self.base_url}/v1/learning/sync/share",
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logger.info(
+                        f"Synced {data.get('count', 0)} {sync_type} items "
+                        f"from BenchAI"
+                    )
+                    return data
+                else:
+                    logger.warning(
+                        f"Failed to sync with BenchAI: "
+                        f"HTTP {response.status}"
+                    )
+                    return None
 
     async def push_to_benchai(
         self,
@@ -158,60 +212,71 @@ class BenchAIClient:
         Returns:
             True if successful, False otherwise
         """
+        if not self._circuit.can_execute():
+            logger.warning(f"[BenchAI] Circuit OPEN - skipping push")
+            return False
+
         try:
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "from_agent": self.agent_id,
-                    "sync_type": sync_type,
-                    "items": items
-                }
-
-                async with session.post(
-                    f"{self.base_url}/v1/learning/sync/receive",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        logger.info(
-                            f"Pushed {data.get('items_processed', 0)} {sync_type} "
-                            f"items to BenchAI"
-                        )
-                        return True
-                    else:
-                        logger.warning(
-                            f"Failed to push to BenchAI: "
-                            f"HTTP {response.status}"
-                        )
-                        return False
-
-        except aiohttp.ClientError as e:
-            logger.warning(f"Could not connect to BenchAI for push: {e}")
+            result = await self._push_with_retry(sync_type, items)
+            self._circuit.record_success()
+            return result
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            self._circuit.record_failure()
+            logger.warning(f"[BenchAI] Push failed (circuit: {self._circuit.state.value}): {e}")
             return False
         except Exception as e:
-            logger.error(f"Unexpected error pushing to BenchAI: {e}")
+            self._circuit.record_failure()
+            logger.error(f"[BenchAI] Unexpected push error: {e}")
             return False
+
+    @with_retry(max_attempts=3, min_wait=0.5, max_wait=5.0)
+    async def _push_with_retry(self, sync_type: str, items: list) -> bool:
+        """Internal push with retry logic."""
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "from_agent": self.agent_id,
+                "sync_type": sync_type,
+                "items": items
+            }
+
+            async with session.post(
+                f"{self.base_url}/v1/learning/sync/receive",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    logger.info(
+                        f"Pushed {data.get('items_processed', 0)} {sync_type} "
+                        f"items to BenchAI"
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        f"Failed to push to BenchAI: "
+                        f"HTTP {response.status}"
+                    )
+                    return False
 
     async def health_check(self) -> bool:
         """
         Check if BenchAI is available.
 
+        Note: Health checks bypass the circuit breaker to allow
+        recovery detection even when circuit is open.
+
         Returns:
             True if BenchAI is reachable, False otherwise
         """
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.base_url}/health",
-                    timeout=aiohttp.ClientTimeout(total=2)
-                ) as response:
-                    if response.status == 200:
-                        logger.debug(f"BenchAI health check passed: {self.base_url}")
-                        return True
-                    else:
-                        logger.warning(f"BenchAI health check failed: HTTP {response.status}")
-                        return False
+        healthy, error = await check_connectivity(
+            f"{self.base_url}/health",
+            timeout=3.0,
+            expected_status=200
+        )
 
-        except Exception as e:
-            logger.warning(f"BenchAI unreachable at {self.base_url}: {e}")
-            return False
+        if healthy:
+            logger.debug(f"BenchAI health check passed: {self.base_url}")
+        else:
+            logger.warning(f"BenchAI health check failed: {error}")
+
+        return healthy

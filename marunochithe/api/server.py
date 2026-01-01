@@ -12,6 +12,7 @@ from loguru import logger
 
 from ..config import load_settings, get_settings
 from ..storage import get_storage, init_storage
+from ..resilience import validate_connectivity_at_startup, get_all_circuits
 from ..core.inference import InferenceEngine, ModelSize
 from ..code_understanding import (
     CodeParser,
@@ -103,7 +104,30 @@ async def lifespan(app: FastAPI):
         # BenchAI client uses config automatically (no arguments needed)
         benchai_client = BenchAIClient()
 
-        # Check if BenchAI is available
+        # Validate connectivity at startup
+        logger.info("[Startup] Validating network connectivity...")
+        services = {
+            "benchai": f"{settings.benchai.url}/health",
+            "ollama": f"{settings.ollama.host}/api/version",
+        }
+
+        # Ollama is required, BenchAI is optional
+        try:
+            connectivity = await validate_connectivity_at_startup(
+                services=services,
+                required=["ollama"],  # Only Ollama is required
+                timeout=5.0
+            )
+            for name, status in connectivity.items():
+                if status["healthy"]:
+                    logger.info(f"[Startup] {name}: healthy")
+                else:
+                    logger.warning(f"[Startup] {name}: {status['error']}")
+        except ConnectionError as conn_err:
+            logger.error(f"[Startup] Required service unavailable: {conn_err}")
+            # Continue anyway - Ollama might come up later
+
+        # Final BenchAI status
         benchai_available = await benchai_client.health_check()
         if benchai_available:
             logger.info("BenchAI client ready - multi-agent integration enabled")
@@ -141,7 +165,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MarunochiAI",
     description="The most powerful self-hosted coding assistant with A2A integration",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -159,7 +183,7 @@ async def health_check() -> HealthResponse:
                 ModelSize.FAST,
                 ModelSize.POWERFUL,
             ],
-            version="0.2.0",
+            version="0.3.0",
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -167,7 +191,7 @@ async def health_check() -> HealthResponse:
             status="unhealthy",
             ollama_available=False,
             models_loaded=[],
-            version="0.2.0",
+            version="0.3.0",
         )
 
 
@@ -191,6 +215,32 @@ async def storage_stats() -> Dict:
             "status": "error",
             "message": str(e)
         }
+
+
+@app.get("/v1/resilience/circuits", tags=["Resilience"])
+async def circuit_status() -> Dict:
+    """
+    Get circuit breaker status for all circuits.
+
+    Returns the state of each circuit breaker (CLOSED, OPEN, HALF_OPEN)
+    along with failure counts and recovery times.
+    """
+    circuits = get_all_circuits()
+
+    # Add BenchAI client circuit if available
+    if benchai_client:
+        circuits["benchai_client"] = benchai_client.get_circuit_status()
+
+    return {
+        "status": "ok",
+        "circuits": circuits,
+        "summary": {
+            "total": len(circuits),
+            "open": sum(1 for c in circuits.values() if c.get("state") == "open"),
+            "half_open": sum(1 for c in circuits.values() if c.get("state") == "half_open"),
+            "closed": sum(1 for c in circuits.values() if c.get("state") == "closed"),
+        }
+    }
 
 
 @app.post("/v1/chat/completions", response_model=None)
@@ -809,7 +859,7 @@ async def agent_card(request: Request):
 
     return {
         "name": "MarunochiAI",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "description": "The most powerful self-hosted coding assistant",
         "capabilities": [
             "code_search",
@@ -831,7 +881,9 @@ async def agent_card(request: Request):
             "stats": f"{base_url}/v1/codebase/stats",
             "sync_receive": f"{base_url}/v1/sync/receive",
             "sync_share": f"{base_url}/v1/sync/share",
-            "a2a_task": f"{base_url}/v1/a2a/task"
+            "a2a_task": f"{base_url}/v1/a2a/task",
+            "circuits": f"{base_url}/v1/resilience/circuits",
+            "storage_stats": f"{base_url}/v1/storage/stats"
         },
         "status": "online",
         "load": 0.0
@@ -843,7 +895,7 @@ async def root():
     """Root endpoint."""
     return {
         "name": "MarunochiAI",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "description": "The most powerful self-hosted coding assistant",
         "endpoints": {
             "health": "/health",
@@ -852,6 +904,8 @@ async def root():
             "codebase_search": "/v1/codebase/search",
             "codebase_stats": "/v1/codebase/stats",
             "codebase_refresh": "/v1/codebase/refresh",
+            "storage_stats": "/v1/storage/stats",
+            "circuits": "/v1/resilience/circuits",
             "agent_card": "/.well-known/agent.json",
             "sync_receive": "/v1/sync/receive",
             "sync_share": "/v1/sync/share",
