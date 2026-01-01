@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 
 from ..config import load_settings, get_settings
+from ..storage import get_storage, init_storage
 from ..core.inference import InferenceEngine, ModelSize
 from ..code_understanding import (
     CodeParser,
@@ -112,6 +113,19 @@ async def lifespan(app: FastAPI):
         logger.warning(f"BenchAI client initialization failed: {e}")
         logger.warning("Server will run without multi-agent integration")
 
+    # Initialize local storage for A2A sync
+    try:
+        logger.info("Initializing local storage...")
+        storage = await init_storage()
+        stats = await storage.get_stats()
+        logger.info(
+            f"[Storage] Ready - {stats['experiences_count']} experiences, "
+            f"{stats['knowledge_count']} knowledge, {stats['patterns_count']} patterns"
+        )
+    except Exception as e:
+        logger.warning(f"Storage initialization failed: {e}")
+        logger.warning("Server will run without local storage (sync disabled)")
+
     logger.info("MarunochiAI server ready")
 
     yield
@@ -155,6 +169,28 @@ async def health_check() -> HealthResponse:
             models_loaded=[],
             version="0.2.0",
         )
+
+
+@app.get("/v1/storage/stats", tags=["Storage"])
+async def storage_stats() -> Dict:
+    """
+    Get local storage statistics.
+
+    Returns counts of stored experiences, knowledge, and patterns.
+    """
+    try:
+        storage = get_storage()
+        stats = await storage.get_stats()
+        return {
+            "status": "ok",
+            **stats
+        }
+    except Exception as e:
+        logger.error(f"Storage stats failed: {e}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 
 @app.post("/v1/chat/completions", response_model=None)
@@ -486,47 +522,34 @@ async def receive_sync_data(request: SyncRequest) -> SyncResponse:
     Returns:
         Status and count of items processed
     """
-    items_processed = 0
-
-    for item in request.items:
-        try:
-            if request.sync_type == "experience":
-                # Store coding experience
-                logger.info(
-                    f"Received experience from {request.from_agent}: "
-                    f"{item.get('content', '')[:100]}..."
-                )
-                # TODO: Add to local experience storage (Phase 4)
-                items_processed += 1
-
-            elif request.sync_type == "knowledge":
-                # Store knowledge note
-                logger.info(
-                    f"Received knowledge from {request.from_agent}: "
-                    f"{item.get('title', '')}"
-                )
-                # TODO: Add to local knowledge storage (Phase 4)
-                items_processed += 1
-
-            elif request.sync_type == "pattern":
-                # Store coding pattern
-                logger.info(
-                    f"Received pattern from {request.from_agent}: "
-                    f"{item.get('pattern_name', '')}"
-                )
-                # TODO: Add to pattern library (Phase 4)
-                items_processed += 1
-
-        except Exception as e:
-            logger.error(f"Failed to process sync item: {e}")
-            continue
-
-    return SyncResponse(
-        status="ok",
-        from_agent=request.from_agent,
-        items_processed=items_processed,
-        sync_type=request.sync_type
+    logger.info(
+        f"[Sync] Receiving {len(request.items)} {request.sync_type} items "
+        f"from {request.from_agent}"
     )
+
+    try:
+        storage = get_storage()
+        items_processed = await storage.bulk_store(
+            sync_type=request.sync_type,
+            items=request.items,
+            source=request.from_agent
+        )
+
+        return SyncResponse(
+            status="ok",
+            from_agent=request.from_agent,
+            items_processed=items_processed,
+            sync_type=request.sync_type
+        )
+
+    except Exception as e:
+        logger.error(f"[Sync] Failed to store items: {e}")
+        return SyncResponse(
+            status="error",
+            from_agent=request.from_agent,
+            items_processed=0,
+            sync_type=request.sync_type
+        )
 
 
 @app.get("/v1/sync/share", tags=["A2A Integration"])
@@ -551,50 +574,35 @@ async def share_sync_data(
     Returns:
         List of items to share
     """
-    items = []
+    logger.info(f"[Sync] Sharing {sync_type} data with {requester} (limit={limit})")
 
     try:
-        if sync_type == "experience":
-            # Get recent successful coding experiences
-            # TODO: Pull from actual experience storage (Phase 4)
-            # For now, return placeholder
-            items = [
-                {
-                    "id": "exp-001",
-                    "content": "Successfully used hybrid search for code refactoring",
-                    "importance": 4,
-                    "category": "refactoring",
-                    "created_at": "2025-12-26T12:00:00Z"
-                }
-            ]
+        storage = get_storage()
+        items = await storage.get_for_sync(
+            sync_type=sync_type,
+            limit=limit,
+            since=since
+        )
 
-        elif sync_type == "knowledge":
-            # Get coding patterns and best practices learned
-            # TODO: Pull from actual knowledge storage (Phase 4)
-            items = [
-                {
-                    "id": "know-001",
-                    "title": "Hybrid Search Best Practices",
-                    "content": "RRF with k=60 provides optimal balance between vector and keyword search",
-                    "tags": ["search", "rag", "optimization"]
-                }
-            ]
+        logger.info(f"[Sync] Returning {len(items)} {sync_type} items to {requester}")
 
-        elif sync_type == "pattern":
-            # Get coding patterns
-            # TODO: Pull from pattern library (Phase 4)
-            items = []
+        return ShareResponse(
+            status="ok",
+            for_agent=requester,
+            sync_type=sync_type,
+            items=items,
+            count=len(items)
+        )
 
     except Exception as e:
-        logger.error(f"Failed to get sync data: {e}")
-
-    return ShareResponse(
-        status="ok",
-        for_agent=requester,
-        sync_type=sync_type,
-        items=items,
-        count=len(items)
-    )
+        logger.error(f"[Sync] Failed to get data for {requester}: {e}")
+        return ShareResponse(
+            status="error",
+            for_agent=requester,
+            sync_type=sync_type,
+            items=[],
+            count=0
+        )
 
 
 @app.post("/v1/a2a/task", tags=["A2A Integration"])
@@ -661,6 +669,24 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
                     description=f"Completed code search: {request.task_description[:100]}"
                 )
 
+            # Store experience locally
+            try:
+                storage = get_storage()
+                await storage.store_experience(
+                    content=f"Code search: {request.task_description[:200]}",
+                    category="code_search",
+                    importance=3,
+                    success=True,
+                    metadata={
+                        "task_id": task_id,
+                        "duration_ms": duration_ms,
+                        "results_count": len(results),
+                        "from_agent": request.from_agent
+                    }
+                )
+            except Exception as store_err:
+                logger.warning(f"Failed to store experience: {store_err}")
+
             return A2ATaskResponse(
                 task_id=task_id,
                 status="completed",
@@ -709,6 +735,26 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
                     },
                     description=f"Completed {request.task_type}: {request.task_description[:100]}"
                 )
+
+            # Store experience locally
+            try:
+                storage = get_storage()
+                # Higher importance for complex tasks
+                importance = 4 if request.task_type in ["refactoring", "debugging"] else 3
+                await storage.store_experience(
+                    content=f"{request.task_type}: {request.task_description[:200]}",
+                    category=request.task_type,
+                    importance=importance,
+                    success=True,
+                    metadata={
+                        "task_id": task_id,
+                        "duration_ms": duration_ms,
+                        "response_length": len(response),
+                        "from_agent": request.from_agent
+                    }
+                )
+            except Exception as store_err:
+                logger.warning(f"Failed to store experience: {store_err}")
 
             return A2ATaskResponse(
                 task_id=task_id,
