@@ -6,7 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Union, Dict, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -738,13 +738,21 @@ async def receive_task(request: A2ATaskRequest) -> A2ATaskResponse:
 
 
 @app.get("/.well-known/agent.json", tags=["A2A Integration"])
-async def agent_card():
+async def agent_card(request: Request):
     """
     A2A Agent Card for discovery.
 
     This endpoint provides agent capabilities and endpoints for
     multi-agent orchestration (A2A Protocol v0.3).
+
+    Endpoints are dynamically generated based on the request host,
+    ensuring correct URLs for cross-network communication.
     """
+    # Build base URL from request (handles both localhost and network IP access)
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    host = request.headers.get("host", "localhost:8765")
+    base_url = f"{scheme}://{host}"
+
     return {
         "name": "MarunochiAI",
         "version": "0.2.0",
@@ -762,14 +770,14 @@ async def agent_card():
         "domains": ["coding"],
         "priority": 0.95,
         "endpoints": {
-            "health": "http://localhost:8765/health",
-            "chat": "http://localhost:8765/v1/chat/completions",
-            "search": "http://localhost:8765/v1/codebase/search",
-            "index": "http://localhost:8765/v1/codebase/index",
-            "stats": "http://localhost:8765/v1/codebase/stats",
-            "sync_receive": "http://localhost:8765/v1/sync/receive",
-            "sync_share": "http://localhost:8765/v1/sync/share",
-            "a2a_task": "http://localhost:8765/v1/a2a/task"
+            "health": f"{base_url}/health",
+            "chat": f"{base_url}/v1/chat/completions",
+            "search": f"{base_url}/v1/codebase/search",
+            "index": f"{base_url}/v1/codebase/index",
+            "stats": f"{base_url}/v1/codebase/stats",
+            "sync_receive": f"{base_url}/v1/sync/receive",
+            "sync_share": f"{base_url}/v1/sync/share",
+            "a2a_task": f"{base_url}/v1/a2a/task"
         },
         "status": "online",
         "load": 0.0
