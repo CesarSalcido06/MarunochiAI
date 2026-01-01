@@ -1,7 +1,6 @@
 """FastAPI server with OpenAI-compatible endpoints."""
 
 import json
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -11,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
+from ..config import load_settings, get_settings
 from ..core.inference import InferenceEngine, ModelSize
 from ..code_understanding import (
     CodeParser,
@@ -59,10 +59,16 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting MarunochiAI server...")
 
-    # Initialize inference engine
+    # Load configuration from .env file
+    settings = load_settings()
+    logger.info(f"[CONFIG] Ollama: {settings.ollama.host}")
+    logger.info(f"[CONFIG] BenchAI: {settings.benchai.url}")
+    logger.info(f"[CONFIG] Agent ID: {settings.benchai.agent_id}")
+
+    # Initialize inference engine with configured Ollama host
     engine = InferenceEngine(
-        ollama_host="http://localhost:11434",
-        enable_custom=True  # Use fine-tuned model if available
+        ollama_host=settings.ollama.host,
+        enable_custom=settings.server.enable_custom
     )
 
     # Health check
@@ -93,9 +99,8 @@ async def lifespan(app: FastAPI):
     # Initialize BenchAI client for multi-agent integration
     try:
         logger.info("Initializing BenchAI client...")
-        benchai_url = os.environ.get("BENCHAI_URL", "http://localhost:8085")
-        logger.info(f"Connecting to BenchAI at: {benchai_url}")
-        benchai_client = BenchAIClient(benchai_url=benchai_url)
+        # BenchAI client uses config automatically (no arguments needed)
+        benchai_client = BenchAIClient()
 
         # Check if BenchAI is available
         benchai_available = await benchai_client.health_check()

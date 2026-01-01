@@ -4,6 +4,8 @@ import aiohttp
 from typing import Dict, Any, Optional
 from loguru import logger
 
+from ..config import get_settings, get_benchai_url, get_agent_id
+
 
 class BenchAIClient:
     """
@@ -11,17 +13,27 @@ class BenchAIClient:
 
     This allows MarunochiAI to report task completions, share experiences,
     and participate in the multi-agent learning ecosystem.
+
+    Configuration is loaded from environment variables via config module.
     """
 
-    def __init__(self, benchai_url: str = "http://localhost:8085"):
+    def __init__(self, benchai_url: Optional[str] = None, agent_id: Optional[str] = None):
         """
         Initialize BenchAI client.
 
         Args:
-            benchai_url: Base URL for BenchAI server
+            benchai_url: Base URL for BenchAI server. If not provided,
+                        reads from BENCHAI_URL environment variable.
+            agent_id: Agent identifier. If not provided,
+                     reads from BENCHAI_AGENT_ID environment variable.
         """
-        self.base_url = benchai_url
-        self.agent_id = "marunochiAI"
+        self.base_url = benchai_url or get_benchai_url()
+        self.agent_id = agent_id or get_agent_id()
+
+        logger.info(
+            f"[BenchAI Client] Initialized with URL={self.base_url}, "
+            f"agent_id={self.agent_id}"
+        )
 
     async def report_task_completion(
         self,
@@ -76,7 +88,7 @@ class BenchAIClient:
                         return False
 
         except aiohttp.ClientError as e:
-            logger.debug(f"Could not connect to BenchAI: {e}")
+            logger.warning(f"Could not connect to BenchAI at {self.base_url}: {e}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error reporting to BenchAI: {e}")
@@ -125,7 +137,7 @@ class BenchAIClient:
                         return None
 
         except aiohttp.ClientError as e:
-            logger.debug(f"Could not connect to BenchAI: {e}")
+            logger.warning(f"Could not connect to BenchAI for sync: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error syncing with BenchAI: {e}")
@@ -174,7 +186,7 @@ class BenchAIClient:
                         return False
 
         except aiohttp.ClientError as e:
-            logger.debug(f"Could not connect to BenchAI: {e}")
+            logger.warning(f"Could not connect to BenchAI for push: {e}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error pushing to BenchAI: {e}")
@@ -193,7 +205,13 @@ class BenchAIClient:
                     f"{self.base_url}/health",
                     timeout=aiohttp.ClientTimeout(total=2)
                 ) as response:
-                    return response.status == 200
+                    if response.status == 200:
+                        logger.debug(f"BenchAI health check passed: {self.base_url}")
+                        return True
+                    else:
+                        logger.warning(f"BenchAI health check failed: HTTP {response.status}")
+                        return False
 
-        except Exception:
+        except Exception as e:
+            logger.warning(f"BenchAI unreachable at {self.base_url}: {e}")
             return False

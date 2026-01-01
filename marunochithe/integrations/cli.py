@@ -10,6 +10,7 @@ from rich.markdown import Markdown
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from loguru import logger
 
+from ..config import load_settings
 from ..core.inference import InferenceEngine
 from ..core.tools import ToolRegistry
 from ..code_understanding import (
@@ -49,8 +50,12 @@ def chat(
 async def _chat(prompt: str, model: Optional[str], stream: bool):
     """Internal async chat handler."""
     try:
-        # Initialize engine
-        engine = InferenceEngine()
+        # Load configuration and initialize engine
+        settings = load_settings()
+        engine = InferenceEngine(
+            ollama_host=settings.ollama.host,
+            enable_custom=settings.server.enable_custom
+        )
 
         # Prepare messages
         messages = [{"role": "user", "content": prompt}]
