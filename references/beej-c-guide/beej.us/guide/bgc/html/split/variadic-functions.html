@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Beej's Guide to C Programming</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <!-- Generated by the mklightdark script -->
+  <!-- Modify that script to change syntax highlighting -->
+    <style>
+     @media (prefers-color-scheme: light) {
+      html {
+        color: #1a1a1a;
+        background-color: #fdfdfd;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 36em;
+        padding-left: 50px;
+        padding-right: 50px;
+        padding-top: 50px;
+        padding-bottom: 50px;
+        hyphens: auto;
+        overflow-wrap: break-word;
+        text-rendering: optimizeLegibility;
+        font-kerning: normal;
+      }
+      @media (max-width: 600px) {
+        body {
+          font-size: 0.9em;
+          padding: 12px;
+        }
+        h1 {
+          font-size: 1.8em;
+        }
+      }
+      @media print {
+        html {
+          background-color: white;
+        }
+        body {
+          background-color: transparent;
+          color: black;
+          font-size: 12pt;
+        }
+        p, h2, h3 {
+          orphans: 3;
+          widows: 3;
+        }
+        h2, h3, h4 {
+          page-break-after: avoid;
+        }
+      }
+      p {
+        margin: 1em 0;
+      }
+      a {
+        color: #1a1a1a;
+      }
+      a:visited {
+        color: #1a1a1a;
+      }
+      img {
+        max-width: 100%;
+      }
+      svg {
+        height: auto;
+        max-width: 100%;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin-top: 1.4em;
+      }
+      h5, h6 {
+        font-size: 1em;
+        font-style: italic;
+      }
+      h6 {
+        font-weight: normal;
+      }
+      ol, ul {
+        padding-left: 1.7em;
+        margin-top: 1em;
+      }
+      li > ol, li > ul {
+        margin-top: 0;
+      }
+      blockquote {
+        margin: 1em 0 1em 1.7em;
+        padding-left: 1em;
+        border-left: 2px solid #e6e6e6;
+        color: #606060;
+      }
+      code {
+        font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+        font-size: 85%;
+        margin: 0;
+        hyphens: manual;
+      }
+      pre {
+        margin: 1em 0;
+        overflow: auto;
+      }
+      pre code {
+        padding: 0;
+        overflow: visible;
+        overflow-wrap: normal;
+      }
+      .sourceCode {
+       background-color: transparent;
+       overflow: visible;
+      }
+      hr {
+        background-color: #1a1a1a;
+        border: none;
+        height: 1px;
+        margin: 1em 0;
+      }
+      table {
+        margin: 1em 0;
+        border-collapse: collapse;
+        width: 100%;
+        overflow-x: auto;
+        display: block;
+        font-variant-numeric: lining-nums tabular-nums;
+      }
+      table caption {
+        margin-bottom: 0.75em;
+      }
+      tbody {
+        margin-top: 0.5em;
+        border-top: 1px solid #1a1a1a;
+        border-bottom: 1px solid #1a1a1a;
+      }
+      th {
+        border-top: 1px solid #1a1a1a;
+        padding: 0.25em 0.5em 0.25em 0.5em;
+      }
+      td {
+        padding: 0.125em 0.5em 0.25em 0.5em;
+      }
+      header {
+        margin-bottom: 4em;
+        text-align: center;
+      }
+      #TOC li {
+        list-style: none;
+      }
+      #TOC ul {
+        padding-left: 1.3em;
+      }
+      #TOC > ul {
+        padding-left: 0;
+      }
+      #TOC a:not(:hover) {
+        text-decoration: none;
+      }
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      div.columns{display: flex; gap: min(4vw, 1.5em);}
+      div.column{flex: auto; overflow-x: auto;}
+      div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+      /* The extra [class] is a hack that increases specificity enough to
+         override a similar rule in reveal.js */
+      ul.task-list[class]{list-style: none;}
+      ul.task-list li input[type="checkbox"] {
+        font-size: inherit;
+        width: 0.8em;
+        margin: 0 0.8em 0.2em -1.6em;
+        vertical-align: middle;
+      }
+      .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+      /* CSS for syntax highlighting */
+      html { -webkit-text-size-adjust: 100%; }
+      pre > code.sourceCode { white-space: pre; position: relative; }
+      pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+      pre > code.sourceCode > span:empty { height: 1.2em; }
+      .sourceCode { overflow: visible; }
+      code.sourceCode > span { color: inherit; text-decoration: inherit; }
+      div.sourceCode { margin: 1em 0; }
+      pre.sourceCode { margin: 0; }
+      @media screen {
+      div.sourceCode { overflow: auto; }
+      }
+      @media print {
+      pre > code.sourceCode { white-space: pre-wrap; }
+      pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+      }
+      pre.numberSource code
+        { counter-reset: source-line 0; }
+      pre.numberSource code > span
+        { position: relative; left: -4em; counter-increment: source-line; }
+      pre.numberSource code > span > a:first-child::before
+        { content: counter(source-line);
+          position: relative; left: -1em; text-align: right; vertical-align: baseline;
+          border: none; display: inline-block;
+          -webkit-touch-callout: none; -webkit-user-select: none;
+          -khtml-user-select: none; -moz-user-select: none;
+          -ms-user-select: none; user-select: none;
+          padding: 0 4px; width: 4em;
+          color: #aaaaaa;
+        }
+      pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+      div.sourceCode
+        {   }
+      @media screen {
+      pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+      }
+      code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+      code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+      code span.at { color: #7d9029; } /* Attribute */
+      code span.bn { color: #40a070; } /* BaseN */
+      code span.bu { color: #008000; } /* BuiltIn */
+      code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+      code span.ch { color: #4070a0; } /* Char */
+      code span.cn { color: #880000; } /* Constant */
+      code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+      code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+      code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+      code span.dt { color: #902000; } /* DataType */
+      code span.dv { color: #40a070; } /* DecVal */
+      code span.er { color: #ff0000; font-weight: bold; } /* Error */
+      code span.ex { } /* Extension */
+      code span.fl { color: #40a070; } /* Float */
+      code span.fu { color: #06287e; } /* Function */
+      code span.im { color: #008000; font-weight: bold; } /* Import */
+      code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+      code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+      code span.op { color: #666666; } /* Operator */
+      code span.ot { color: #007020; } /* Other */
+      code span.pp { color: #bc7a00; } /* Preprocessor */
+      code span.sc { color: #4070a0; } /* SpecialChar */
+      code span.ss { color: #bb6688; } /* SpecialString */
+      code span.st { color: #4070a0; } /* String */
+      code span.va { color: #19177c; } /* Variable */
+      code span.vs { color: #4070a0; } /* VerbatimString */
+      code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+      }
+    </style>
+    <style>
+     @media (prefers-color-scheme: dark) {
+      html {
+        color: #1a1a1a;
+        background-color: #fdfdfd;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 36em;
+        padding-left: 50px;
+        padding-right: 50px;
+        padding-top: 50px;
+        padding-bottom: 50px;
+        hyphens: auto;
+        overflow-wrap: break-word;
+        text-rendering: optimizeLegibility;
+        font-kerning: normal;
+      }
+      @media (max-width: 600px) {
+        body {
+          font-size: 0.9em;
+          padding: 12px;
+        }
+        h1 {
+          font-size: 1.8em;
+        }
+      }
+      @media print {
+        html {
+          background-color: white;
+        }
+        body {
+          background-color: transparent;
+          color: black;
+          font-size: 12pt;
+        }
+        p, h2, h3 {
+          orphans: 3;
+          widows: 3;
+        }
+        h2, h3, h4 {
+          page-break-after: avoid;
+        }
+      }
+      p {
+        margin: 1em 0;
+      }
+      a {
+        color: #1a1a1a;
+      }
+      a:visited {
+        color: #1a1a1a;
+      }
+      img {
+        max-width: 100%;
+      }
+      svg {
+        height: auto;
+        max-width: 100%;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        margin-top: 1.4em;
+      }
+      h5, h6 {
+        font-size: 1em;
+        font-style: italic;
+      }
+      h6 {
+        font-weight: normal;
+      }
+      ol, ul {
+        padding-left: 1.7em;
+        margin-top: 1em;
+      }
+      li > ol, li > ul {
+        margin-top: 0;
+      }
+      blockquote {
+        margin: 1em 0 1em 1.7em;
+        padding-left: 1em;
+        border-left: 2px solid #e6e6e6;
+        color: #606060;
+      }
+      code {
+        font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+        font-size: 85%;
+        margin: 0;
+        hyphens: manual;
+      }
+      pre {
+        margin: 1em 0;
+        overflow: auto;
+      }
+      pre code {
+        padding: 0;
+        overflow: visible;
+        overflow-wrap: normal;
+      }
+      .sourceCode {
+       background-color: transparent;
+       overflow: visible;
+      }
+      hr {
+        background-color: #1a1a1a;
+        border: none;
+        height: 1px;
+        margin: 1em 0;
+      }
+      table {
+        margin: 1em 0;
+        border-collapse: collapse;
+        width: 100%;
+        overflow-x: auto;
+        display: block;
+        font-variant-numeric: lining-nums tabular-nums;
+      }
+      table caption {
+        margin-bottom: 0.75em;
+      }
+      tbody {
+        margin-top: 0.5em;
+        border-top: 1px solid #1a1a1a;
+        border-bottom: 1px solid #1a1a1a;
+      }
+      th {
+        border-top: 1px solid #1a1a1a;
+        padding: 0.25em 0.5em 0.25em 0.5em;
+      }
+      td {
+        padding: 0.125em 0.5em 0.25em 0.5em;
+      }
+      header {
+        margin-bottom: 4em;
+        text-align: center;
+      }
+      #TOC li {
+        list-style: none;
+      }
+      #TOC ul {
+        padding-left: 1.3em;
+      }
+      #TOC > ul {
+        padding-left: 0;
+      }
+      #TOC a:not(:hover) {
+        text-decoration: none;
+      }
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      div.columns{display: flex; gap: min(4vw, 1.5em);}
+      div.column{flex: auto; overflow-x: auto;}
+      div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+      /* The extra [class] is a hack that increases specificity enough to
+         override a similar rule in reveal.js */
+      ul.task-list[class]{list-style: none;}
+      ul.task-list li input[type="checkbox"] {
+        font-size: inherit;
+        width: 0.8em;
+        margin: 0 0.8em 0.2em -1.6em;
+        vertical-align: middle;
+      }
+      .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+      /* CSS for syntax highlighting */
+      html { -webkit-text-size-adjust: 100%; }
+      pre > code.sourceCode { white-space: pre; position: relative; }
+      pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+      pre > code.sourceCode > span:empty { height: 1.2em; }
+      .sourceCode { overflow: visible; }
+      code.sourceCode > span { color: inherit; text-decoration: inherit; }
+      div.sourceCode { margin: 1em 0; }
+      pre.sourceCode { margin: 0; }
+      @media screen {
+      div.sourceCode { overflow: auto; }
+      }
+      @media print {
+      pre > code.sourceCode { white-space: pre-wrap; }
+      pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+      }
+      pre.numberSource code
+        { counter-reset: source-line 0; }
+      pre.numberSource code > span
+        { position: relative; left: -4em; counter-increment: source-line; }
+      pre.numberSource code > span > a:first-child::before
+        { content: counter(source-line);
+          position: relative; left: -1em; text-align: right; vertical-align: baseline;
+          border: none; display: inline-block;
+          -webkit-touch-callout: none; -webkit-user-select: none;
+          -khtml-user-select: none; -moz-user-select: none;
+          -ms-user-select: none; user-select: none;
+          padding: 0 4px; width: 4em;
+        }
+      pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+      div.sourceCode
+        { color: #cccccc; background-color: #303030; }
+      @media screen {
+      pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+      }
+      code span.al { color: #ffcfaf; } /* Alert */
+      code span.an { color: #7f9f7f; font-weight: bold; } /* Annotation */
+      code span.at { } /* Attribute */
+      code span.bn { color: #dca3a3; } /* BaseN */
+      code span.bu { } /* BuiltIn */
+      code span.cf { color: #f0dfaf; } /* ControlFlow */
+      code span.ch { color: #dca3a3; } /* Char */
+      code span.cn { color: #dca3a3; font-weight: bold; } /* Constant */
+      code span.co { color: #7f9f7f; } /* Comment */
+      code span.cv { color: #7f9f7f; font-weight: bold; } /* CommentVar */
+      code span.do { color: #7f9f7f; } /* Documentation */
+      code span.dt { color: #dfdfbf; } /* DataType */
+      code span.dv { color: #dcdccc; } /* DecVal */
+      code span.er { color: #c3bf9f; } /* Error */
+      code span.ex { } /* Extension */
+      code span.fl { color: #c0bed1; } /* Float */
+      code span.fu { color: #efef8f; } /* Function */
+      code span.im { } /* Import */
+      code span.in { color: #7f9f7f; font-weight: bold; } /* Information */
+      code span.kw { color: #f0dfaf; } /* Keyword */
+      code span.op { color: #f0efd0; } /* Operator */
+      code span.ot { color: #efef8f; } /* Other */
+      code span.pp { color: #ffcfaf; font-weight: bold; } /* Preprocessor */
+      code span.sc { color: #dca3a3; } /* SpecialChar */
+      code span.ss { color: #cc9393; } /* SpecialString */
+      code span.st { color: #cc9393; } /* String */
+      code span.va { } /* Variable */
+      code span.vs { color: #cc9393; } /* VerbatimString */
+      code span.wa { color: #7f9f7f; font-weight: bold; } /* Warning */
+      }
+    </style>
+  <!-- Hand-rolled dark mode overrides for Pandoc's default CSS -->
+  <!-- Credit: GitHub user ardabbour -->
+    <style>
+     @media (prefers-color-scheme: dark) {
+      html {
+        color: #ddd;
+        background-color: #151515;
+      }
+      a {
+        color: #abb2bf;
+      }
+      a:visited {
+        color: #abb2bf;
+      }
+      hr {
+        background-color: #abb2bf;
+      }
+      table {
+        border-top: 1px solid #abb2bf;
+        border-bottom: 1px solid #abb2bf;
+      }
+      th {
+        border-top: 1px solid #abb2bf;
+      }
+      tbody {
+        border-top: 1px solid #abb2bf;
+        border-bottom: 1px solid #abb2bf;
+      }
+      blockquote {
+        border-left: 2px solid #282c34;
+        color: #5c6370;
+      }
+      figure > embed {
+          filter: invert(0.8); /* yuck -- this part is Beej's fault*/
+      }
+     }
+    </style>
+  <!-- BG custom styling -->
+  <style type="text/css">
+  /* Fix for line numbers not visible */
+  pre.numberSource code > span {
+      left: -1em;
+  }
+  pre.numberSource {
+      margin-left: initial;
+  }
+
+  /* Put some space after the section numbers */
+  span.toc-section-number::after {
+      content: "\a0\a0\a0";  /* non-breaking whitespace */
+  }
+
+  /* Hide underlines on code number links */
+  pre > code.sourceCode > span > a:first-child::before {
+      text-decoration: none;
+  }
+
+  /* Color the source blocks */
+  div.sourceCode {
+      /* background-color: #f0f0f0; */
+  }
+
+  /* Fix iOS big text rendering issue */
+  pre > code.sourceCode > span {
+      display: initial;
+  }
+
+
+  /* Color the inline code */
+  code:not(.sourceCode) {
+      /* background: #f0f0f0; */
+      padding-left: 0.2em;
+      padding-right: 0.2em;
+      border-radius: 0.2em;
+  }
+
+  pre.sourceCode {
+      border: 1px solid #ccc;
+      padding: 0.5em;
+      border-radius: 0.2em;
+  }
+
+  /* Keep code tags from wrapping in tables */
+  tbody code {
+      white-space: nowrap;
+  }
+
+  /* Prevent hyphenation and hyphen breaks in code*/
+  code {
+      word-break: keep-all;
+  }
+
+  td {
+      vertical-align: top;
+  }
+
+  body {
+      font-size: 12pt;
+      max-width: 43em;
+      font-family: sans-serif;
+  }
+
+  html {
+      /* background: #f9f9f9; */
+  }
+
+  figure > embed {
+      max-width: 100%;
+  }
+
+  figure {
+      text-align: center;
+      margin-top: 2em;
+      margin-bottom: 2em;
+  }
+
+  figcaption {
+      font-size: 0.9em;
+      font-style: italic;
+      margin-top: 0.6em;
+  }
+
+  body {
+      counter-reset: figure-counter-major;
+      counter-reset: figure-counter-minor;
+  }
+
+  figure {
+      counter-increment: figure-counter-minor;
+  }
+
+  figcaption::before {
+      content: "Figure " counter(figure-counter-major) "." counter(figure-counter-minor) ": ";
+  }
+
+  blockquote {
+      border-left: 2px solid #bbb;
+      /*color: #444;*/
+  }
+
+  /* Contents */
+
+  nav[role="doc-toc"] > ul > li {
+    font-weight: bold;
+    margin-top: 1.2em;
+  }
+
+  nav[role="doc-toc"] > ul > li:first {
+    font-weight: bold;
+    margin-top: initial;
+  }
+
+  nav[role="doc-toc"] > ul > li > ul {
+    font-weight: normal;
+    margin-top: 0.3em;
+  }
+
+  /*
+  In multipage, we need to reset the figure counter to the chapter
+  number. Luckily, this is in the <h1 data-number> attribute. Unluckily,
+  there is no way to get this in a general way.
+
+  This doesn't work:
+
+    h1[data-number] {
+      counter-set: figure-counter-major attr(data-number);
+    }
+
+  Nor this:
+
+    h1[data-number] {
+      --figure-counter-major-value: attr(data-number);
+      counter-set: figure-counter-major var(--figure-counter-major-value);
+    }
+
+  So, dumbly, we have a bunch of rules for all these sections, up to the
+  maximum possible section.
+
+  Here's a program to generate them:
+
+    for (let i = 1; i < 100; i++)
+        console.log(`h1[data-number="${i}"]{counter-set:figure-counter-major ${i};counter-reset:figure-counter-minor;}`);
+
+  Note to self: never write a book with more than 99 frickin' chapters.
+  */
+
+  h1[data-number="1"]{counter-set:figure-counter-major 1;counter-reset:figure-counter-minor;}
+  h1[data-number="2"]{counter-set:figure-counter-major 2;counter-reset:figure-counter-minor;}
+  h1[data-number="3"]{counter-set:figure-counter-major 3;counter-reset:figure-counter-minor;}
+  h1[data-number="4"]{counter-set:figure-counter-major 4;counter-reset:figure-counter-minor;}
+  h1[data-number="5"]{counter-set:figure-counter-major 5;counter-reset:figure-counter-minor;}
+  h1[data-number="6"]{counter-set:figure-counter-major 6;counter-reset:figure-counter-minor;}
+  h1[data-number="7"]{counter-set:figure-counter-major 7;counter-reset:figure-counter-minor;}
+  h1[data-number="8"]{counter-set:figure-counter-major 8;counter-reset:figure-counter-minor;}
+  h1[data-number="9"]{counter-set:figure-counter-major 9;counter-reset:figure-counter-minor;}
+  h1[data-number="10"]{counter-set:figure-counter-major 10;counter-reset:figure-counter-minor;}
+  h1[data-number="11"]{counter-set:figure-counter-major 11;counter-reset:figure-counter-minor;}
+  h1[data-number="12"]{counter-set:figure-counter-major 12;counter-reset:figure-counter-minor;}
+  h1[data-number="13"]{counter-set:figure-counter-major 13;counter-reset:figure-counter-minor;}
+  h1[data-number="14"]{counter-set:figure-counter-major 14;counter-reset:figure-counter-minor;}
+  h1[data-number="15"]{counter-set:figure-counter-major 15;counter-reset:figure-counter-minor;}
+  h1[data-number="16"]{counter-set:figure-counter-major 16;counter-reset:figure-counter-minor;}
+  h1[data-number="17"]{counter-set:figure-counter-major 17;counter-reset:figure-counter-minor;}
+  h1[data-number="18"]{counter-set:figure-counter-major 18;counter-reset:figure-counter-minor;}
+  h1[data-number="19"]{counter-set:figure-counter-major 19;counter-reset:figure-counter-minor;}
+  h1[data-number="20"]{counter-set:figure-counter-major 20;counter-reset:figure-counter-minor;}
+  h1[data-number="21"]{counter-set:figure-counter-major 21;counter-reset:figure-counter-minor;}
+  h1[data-number="22"]{counter-set:figure-counter-major 22;counter-reset:figure-counter-minor;}
+  h1[data-number="23"]{counter-set:figure-counter-major 23;counter-reset:figure-counter-minor;}
+  h1[data-number="24"]{counter-set:figure-counter-major 24;counter-reset:figure-counter-minor;}
+  h1[data-number="25"]{counter-set:figure-counter-major 25;counter-reset:figure-counter-minor;}
+  h1[data-number="26"]{counter-set:figure-counter-major 26;counter-reset:figure-counter-minor;}
+  h1[data-number="27"]{counter-set:figure-counter-major 27;counter-reset:figure-counter-minor;}
+  h1[data-number="28"]{counter-set:figure-counter-major 28;counter-reset:figure-counter-minor;}
+  h1[data-number="29"]{counter-set:figure-counter-major 29;counter-reset:figure-counter-minor;}
+  h1[data-number="30"]{counter-set:figure-counter-major 30;counter-reset:figure-counter-minor;}
+  h1[data-number="31"]{counter-set:figure-counter-major 31;counter-reset:figure-counter-minor;}
+  h1[data-number="32"]{counter-set:figure-counter-major 32;counter-reset:figure-counter-minor;}
+  h1[data-number="33"]{counter-set:figure-counter-major 33;counter-reset:figure-counter-minor;}
+  h1[data-number="34"]{counter-set:figure-counter-major 34;counter-reset:figure-counter-minor;}
+  h1[data-number="35"]{counter-set:figure-counter-major 35;counter-reset:figure-counter-minor;}
+  h1[data-number="36"]{counter-set:figure-counter-major 36;counter-reset:figure-counter-minor;}
+  h1[data-number="37"]{counter-set:figure-counter-major 37;counter-reset:figure-counter-minor;}
+  h1[data-number="38"]{counter-set:figure-counter-major 38;counter-reset:figure-counter-minor;}
+  h1[data-number="39"]{counter-set:figure-counter-major 39;counter-reset:figure-counter-minor;}
+  h1[data-number="40"]{counter-set:figure-counter-major 40;counter-reset:figure-counter-minor;}
+  h1[data-number="41"]{counter-set:figure-counter-major 41;counter-reset:figure-counter-minor;}
+  h1[data-number="42"]{counter-set:figure-counter-major 42;counter-reset:figure-counter-minor;}
+  h1[data-number="43"]{counter-set:figure-counter-major 43;counter-reset:figure-counter-minor;}
+  h1[data-number="44"]{counter-set:figure-counter-major 44;counter-reset:figure-counter-minor;}
+  h1[data-number="45"]{counter-set:figure-counter-major 45;counter-reset:figure-counter-minor;}
+  h1[data-number="46"]{counter-set:figure-counter-major 46;counter-reset:figure-counter-minor;}
+  h1[data-number="47"]{counter-set:figure-counter-major 47;counter-reset:figure-counter-minor;}
+  h1[data-number="48"]{counter-set:figure-counter-major 48;counter-reset:figure-counter-minor;}
+  h1[data-number="49"]{counter-set:figure-counter-major 49;counter-reset:figure-counter-minor;}
+  h1[data-number="50"]{counter-set:figure-counter-major 50;counter-reset:figure-counter-minor;}
+  h1[data-number="51"]{counter-set:figure-counter-major 51;counter-reset:figure-counter-minor;}
+  h1[data-number="52"]{counter-set:figure-counter-major 52;counter-reset:figure-counter-minor;}
+  h1[data-number="53"]{counter-set:figure-counter-major 53;counter-reset:figure-counter-minor;}
+  h1[data-number="54"]{counter-set:figure-counter-major 54;counter-reset:figure-counter-minor;}
+  h1[data-number="55"]{counter-set:figure-counter-major 55;counter-reset:figure-counter-minor;}
+  h1[data-number="56"]{counter-set:figure-counter-major 56;counter-reset:figure-counter-minor;}
+  h1[data-number="57"]{counter-set:figure-counter-major 57;counter-reset:figure-counter-minor;}
+  h1[data-number="58"]{counter-set:figure-counter-major 58;counter-reset:figure-counter-minor;}
+  h1[data-number="59"]{counter-set:figure-counter-major 59;counter-reset:figure-counter-minor;}
+  h1[data-number="60"]{counter-set:figure-counter-major 60;counter-reset:figure-counter-minor;}
+  h1[data-number="61"]{counter-set:figure-counter-major 61;counter-reset:figure-counter-minor;}
+  h1[data-number="62"]{counter-set:figure-counter-major 62;counter-reset:figure-counter-minor;}
+  h1[data-number="63"]{counter-set:figure-counter-major 63;counter-reset:figure-counter-minor;}
+  h1[data-number="64"]{counter-set:figure-counter-major 64;counter-reset:figure-counter-minor;}
+  h1[data-number="65"]{counter-set:figure-counter-major 65;counter-reset:figure-counter-minor;}
+  h1[data-number="66"]{counter-set:figure-counter-major 66;counter-reset:figure-counter-minor;}
+  h1[data-number="67"]{counter-set:figure-counter-major 67;counter-reset:figure-counter-minor;}
+  h1[data-number="68"]{counter-set:figure-counter-major 68;counter-reset:figure-counter-minor;}
+  h1[data-number="69"]{counter-set:figure-counter-major 69;counter-reset:figure-counter-minor;}
+  h1[data-number="70"]{counter-set:figure-counter-major 70;counter-reset:figure-counter-minor;}
+  h1[data-number="71"]{counter-set:figure-counter-major 71;counter-reset:figure-counter-minor;}
+  h1[data-number="72"]{counter-set:figure-counter-major 72;counter-reset:figure-counter-minor;}
+  h1[data-number="73"]{counter-set:figure-counter-major 73;counter-reset:figure-counter-minor;}
+  h1[data-number="74"]{counter-set:figure-counter-major 74;counter-reset:figure-counter-minor;}
+  h1[data-number="75"]{counter-set:figure-counter-major 75;counter-reset:figure-counter-minor;}
+  h1[data-number="76"]{counter-set:figure-counter-major 76;counter-reset:figure-counter-minor;}
+  h1[data-number="77"]{counter-set:figure-counter-major 77;counter-reset:figure-counter-minor;}
+  h1[data-number="78"]{counter-set:figure-counter-major 78;counter-reset:figure-counter-minor;}
+  h1[data-number="79"]{counter-set:figure-counter-major 79;counter-reset:figure-counter-minor;}
+  h1[data-number="80"]{counter-set:figure-counter-major 80;counter-reset:figure-counter-minor;}
+  h1[data-number="81"]{counter-set:figure-counter-major 81;counter-reset:figure-counter-minor;}
+  h1[data-number="82"]{counter-set:figure-counter-major 82;counter-reset:figure-counter-minor;}
+  h1[data-number="83"]{counter-set:figure-counter-major 83;counter-reset:figure-counter-minor;}
+  h1[data-number="84"]{counter-set:figure-counter-major 84;counter-reset:figure-counter-minor;}
+  h1[data-number="85"]{counter-set:figure-counter-major 85;counter-reset:figure-counter-minor;}
+  h1[data-number="86"]{counter-set:figure-counter-major 86;counter-reset:figure-counter-minor;}
+  h1[data-number="87"]{counter-set:figure-counter-major 87;counter-reset:figure-counter-minor;}
+  h1[data-number="88"]{counter-set:figure-counter-major 88;counter-reset:figure-counter-minor;}
+  h1[data-number="89"]{counter-set:figure-counter-major 89;counter-reset:figure-counter-minor;}
+  h1[data-number="90"]{counter-set:figure-counter-major 90;counter-reset:figure-counter-minor;}
+  h1[data-number="91"]{counter-set:figure-counter-major 91;counter-reset:figure-counter-minor;}
+  h1[data-number="92"]{counter-set:figure-counter-major 92;counter-reset:figure-counter-minor;}
+  h1[data-number="93"]{counter-set:figure-counter-major 93;counter-reset:figure-counter-minor;}
+  h1[data-number="94"]{counter-set:figure-counter-major 94;counter-reset:figure-counter-minor;}
+  h1[data-number="95"]{counter-set:figure-counter-major 95;counter-reset:figure-counter-minor;}
+  h1[data-number="96"]{counter-set:figure-counter-major 96;counter-reset:figure-counter-minor;}
+  h1[data-number="97"]{counter-set:figure-counter-major 97;counter-reset:figure-counter-minor;}
+  h1[data-number="98"]{counter-set:figure-counter-major 98;counter-reset:figure-counter-minor;}
+  h1[data-number="99"]{counter-set:figure-counter-major 99;counter-reset:figure-counter-minor;}
+
+
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+</head>
+<body>
+<div style="text-align:center"><span><a href="bitwise-operations.html" rel="prev">Prev</a> | </span><a href="index.html">Contents</a><span> | <a href="locale-and-internationalization.html" rel="next">Next</a></span></div><hr>
+<h1 data-number="25" id="variadic-functions"><span class="header-section-number">25</span> Variadic Functions</h1>
+<p></p>
+<p><em>Variadic</em> is a fancy word for functions that take arbitrary numbers of arguments.</p>
+<p>A regular function takes a specific number of arguments, for example:</p>
+<div class="sourceCode" id="cb530"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb530-1"><a href="variadic-functions.html#cb530-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> x<span class="op">,</span> <span class="dt">int</span> y<span class="op">)</span></span>
+<span id="cb530-2"><a href="variadic-functions.html#cb530-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb530-3"><a href="variadic-functions.html#cb530-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">+</span> y<span class="op">;</span></span>
+<span id="cb530-4"><a href="variadic-functions.html#cb530-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>You can only call that with exactly two arguments which correspond to parameters <code>x</code> and <code>y</code>.</p>
+<div class="sourceCode" id="cb531"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb531-1"><a href="variadic-functions.html#cb531-1" aria-hidden="true" tabindex="-1"></a>add<span class="op">(</span><span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">);</span></span>
+<span id="cb531-2"><a href="variadic-functions.html#cb531-2" aria-hidden="true" tabindex="-1"></a>add<span class="op">(</span><span class="dv">5</span><span class="op">,</span> <span class="dv">12</span><span class="op">);</span></span></code></pre></div>
+<p>But if you try it with more, the compiler won’t let you:</p>
+<div class="sourceCode" id="cb532"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb532-1"><a href="variadic-functions.html#cb532-1" aria-hidden="true" tabindex="-1"></a>add<span class="op">(</span><span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">);</span>  <span class="co">// ERROR</span></span>
+<span id="cb532-2"><a href="variadic-functions.html#cb532-2" aria-hidden="true" tabindex="-1"></a>add<span class="op">(</span><span class="dv">5</span><span class="op">);</span>        <span class="co">// ERROR</span></span></code></pre></div>
+<p>Variadic functions get around this limitation to a certain extent.</p>
+<p>We’ve already seen a famous example in <code>printf()</code>! You can pass all kinds of things to it.</p>
+<div class="sourceCode" id="cb533"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb533-1"><a href="variadic-functions.html#cb533-1" aria-hidden="true" tabindex="-1"></a>printf<span class="op">(</span><span class="st">&quot;Hello, world!</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb533-2"><a href="variadic-functions.html#cb533-2" aria-hidden="true" tabindex="-1"></a>printf<span class="op">(</span><span class="st">&quot;The number is </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> <span class="dv">2</span><span class="op">);</span></span>
+<span id="cb533-3"><a href="variadic-functions.html#cb533-3" aria-hidden="true" tabindex="-1"></a>printf<span class="op">(</span><span class="st">&quot;The number is </span><span class="sc">%d</span><span class="st"> and pi is </span><span class="sc">%f\n</span><span class="st">&quot;</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="fl">3.14159</span><span class="op">);</span></span></code></pre></div>
+<p>It seems to not care how many arguments you give it!</p>
+<p>Well, that’s not entirely true. Zero arguments will give you an error:</p>
+<div class="sourceCode" id="cb534"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb534-1"><a href="variadic-functions.html#cb534-1" aria-hidden="true" tabindex="-1"></a>printf<span class="op">();</span>  <span class="co">// ERROR</span></span></code></pre></div>
+<p>This leads us to one of the limitations of variadic functions in C: they must have at least one argument.</p>
+<p>But aside from that, they’re pretty flexible, even allows arguments to have different types just like <code>printf()</code> does.</p>
+<p>Let’s see how they work!</p>
+<h2 data-number="25.1" id="ellipses-in-function-signatures"><span class="header-section-number">25.1</span> Ellipses in Function Signatures</h2>
+<p>So how does it work, syntactically?</p>
+<p></p>
+<p>What you do is put all the arguments that <em>must</em> be passed first (and remember there has to be at least one) and after that, you put <code>...</code>. Just like this:</p>
+<div class="sourceCode" id="cb535"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb535-1"><a href="variadic-functions.html#cb535-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> func<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="op">...)</span>   <span class="co">// Literally 3 dots here</span></span></code></pre></div>
+<p>Here’s some code to demo that:</p>
+<div class="sourceCode" id="cb536"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb536-1"><a href="variadic-functions.html#cb536-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb536-2"><a href="variadic-functions.html#cb536-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb536-3"><a href="variadic-functions.html#cb536-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> func<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="op">...)</span></span>
+<span id="cb536-4"><a href="variadic-functions.html#cb536-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb536-5"><a href="variadic-functions.html#cb536-5" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;a is </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> a<span class="op">);</span>  <span class="co">// Prints &quot;a is 2&quot;</span></span>
+<span id="cb536-6"><a href="variadic-functions.html#cb536-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb536-7"><a href="variadic-functions.html#cb536-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb536-8"><a href="variadic-functions.html#cb536-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb536-9"><a href="variadic-functions.html#cb536-9" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb536-10"><a href="variadic-functions.html#cb536-10" aria-hidden="true" tabindex="-1"></a>    func<span class="op">(</span><span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">6</span><span class="op">);</span></span>
+<span id="cb536-11"><a href="variadic-functions.html#cb536-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p></p>
+<p>So, great, we can get that first argument that’s in variable <code>a</code>, but what about the rest of the arguments? How do you get to them?</p>
+<p>Here’s where the fun begins!</p>
+<h2 data-number="25.2" id="getting-the-extra-arguments"><span class="header-section-number">25.2</span> Getting the Extra Arguments</h2>
+<p>You’re going to want to include <code>&lt;stdarg.h&gt;</code> to make any of this work.</p>
+<p></p>
+<p>First things first, we’re going to use a special variable of type <code>va_list</code> (variable argument list) to keep track of which variable we’re accessing at a time.</p>
+<p> </p>
+<p>The idea is that we first start processing arguments with a call to <code>va_start()</code>, process each argument in turn with <code>va_arg()</code>, and then, when done, wrap it up with <code>va_end()</code>.</p>
+<p>When you call <code>va_start()</code>, you need to pass in the <em>last named parameter</em> (the one just before the <code>...</code>) so it knows where to start looking for the additional arguments.</p>
+<p>And when you call <code>va_arg()</code> to get the next argument, you have to tell it the type of argument to get next.</p>
+<p>Here’s a demo that adds together an arbitrary number of integers. The first argument is the number of integers to add together. We’ll make use of that to figure out how many times we have to call <code>va_arg()</code>.</p>
+<div class="sourceCode" id="cb537"><pre class="sourceCode numberSource c numberLines"><code class="sourceCode c"><span id="cb537-1"><a href="variadic-functions.html#cb537-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb537-2"><a href="variadic-functions.html#cb537-2"></a><span class="pp">#include </span><span class="im">&lt;stdarg.h&gt;</span></span>
+<span id="cb537-3"><a href="variadic-functions.html#cb537-3"></a></span>
+<span id="cb537-4"><a href="variadic-functions.html#cb537-4"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> count<span class="op">,</span> <span class="op">...)</span></span>
+<span id="cb537-5"><a href="variadic-functions.html#cb537-5"></a><span class="op">{</span></span>
+<span id="cb537-6"><a href="variadic-functions.html#cb537-6"></a>    <span class="dt">int</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb537-7"><a href="variadic-functions.html#cb537-7"></a>    <span class="dt">va_list</span> va<span class="op">;</span></span>
+<span id="cb537-8"><a href="variadic-functions.html#cb537-8"></a></span>
+<span id="cb537-9"><a href="variadic-functions.html#cb537-9"></a>    va_start<span class="op">(</span>va<span class="op">,</span> count<span class="op">);</span>   <span class="co">// Start with arguments after &quot;count&quot;</span></span>
+<span id="cb537-10"><a href="variadic-functions.html#cb537-10"></a></span>
+<span id="cb537-11"><a href="variadic-functions.html#cb537-11"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb537-12"><a href="variadic-functions.html#cb537-12"></a>        <span class="dt">int</span> n <span class="op">=</span> va_arg<span class="op">(</span>va<span class="op">,</span> <span class="dt">int</span><span class="op">);</span>   <span class="co">// Get the next int</span></span>
+<span id="cb537-13"><a href="variadic-functions.html#cb537-13"></a></span>
+<span id="cb537-14"><a href="variadic-functions.html#cb537-14"></a>        total <span class="op">+=</span> n<span class="op">;</span></span>
+<span id="cb537-15"><a href="variadic-functions.html#cb537-15"></a>    <span class="op">}</span></span>
+<span id="cb537-16"><a href="variadic-functions.html#cb537-16"></a></span>
+<span id="cb537-17"><a href="variadic-functions.html#cb537-17"></a>    va_end<span class="op">(</span>va<span class="op">);</span>  <span class="co">// All done</span></span>
+<span id="cb537-18"><a href="variadic-functions.html#cb537-18"></a></span>
+<span id="cb537-19"><a href="variadic-functions.html#cb537-19"></a>    <span class="cf">return</span> total<span class="op">;</span></span>
+<span id="cb537-20"><a href="variadic-functions.html#cb537-20"></a><span class="op">}</span></span>
+<span id="cb537-21"><a href="variadic-functions.html#cb537-21"></a></span>
+<span id="cb537-22"><a href="variadic-functions.html#cb537-22"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb537-23"><a href="variadic-functions.html#cb537-23"></a><span class="op">{</span></span>
+<span id="cb537-24"><a href="variadic-functions.html#cb537-24"></a>    printf<span class="op">(</span><span class="st">&quot;</span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> add<span class="op">(</span><span class="dv">4</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="op">-</span><span class="dv">4</span><span class="op">,</span> <span class="dv">17</span><span class="op">));</span>  <span class="co">// 6 + 2 - 4 + 17 = 21</span></span>
+<span id="cb537-25"><a href="variadic-functions.html#cb537-25"></a>    printf<span class="op">(</span><span class="st">&quot;</span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> add<span class="op">(</span><span class="dv">2</span><span class="op">,</span> <span class="dv">22</span><span class="op">,</span> <span class="dv">44</span><span class="op">));</span>        <span class="co">// 22 + 44 = 66</span></span>
+<span id="cb537-26"><a href="variadic-functions.html#cb537-26"></a><span class="op">}</span></span></code></pre></div>
+<p> </p>
+<p>(Note that when <code>printf()</code> is called, it uses the number of <code>%d</code>s (or whatever) in the format string to know how many more arguments there are!)</p>
+<p>If the syntax of <code>va_arg()</code> is looking strange to you (because of that loose type name floating around in there), you’re not alone. These are implemented with preprocessor macros in order to get all the proper magic in there.</p>
+<h2 data-number="25.3" id="va_list-functionality"><span class="header-section-number">25.3</span> <code>va_list</code> Functionality</h2>
+<p>What is that <code>va_list</code> variable we’re using up there? It’s an opaque variable<a href="function-specifiers-alignment-specifiersoperators.html#fn154" class="footnote-ref" id="fnref154" role="doc-noteref"><sup>154</sup></a> that holds information about which argument we’re going to get next with <code>va_arg()</code>. You see how we just call <code>va_arg()</code> over and over? The <code>va_list</code> variable is a placeholder that’s keeping track of progress so far.</p>
+<p></p>
+<p>But we have to initialize that variable to some sensible value. That’s where <code>va_start()</code> comes into play.</p>
+<p>When we called <code>va_start(va, count)</code>, above, we were saying, “Initialize the <code>va</code> variable to point to the variable argument <em>immediately after</em> <code>count</code>.”</p>
+<p></p>
+<p>And that’s <em>why</em> we need to have at least one named variable in our argument list<a href="function-specifiers-alignment-specifiersoperators.html#fn155" class="footnote-ref" id="fnref155" role="doc-noteref"><sup>155</sup></a>.</p>
+<p>Once you have that pointer to the initial parameter, you can easily get subsequent argument values by calling <code>va_arg()</code> repeatedly. When you do, you have to pass in your <code>va_list</code> variable (so it can keep on keeping track of where you are), as well as the type of argument you’re about to copy off.</p>
+<p>It’s up to you as a programmer to figure out which type you’re going to pass to <code>va_arg()</code>. In the above example, we just did <code>int</code>s. But in the case of <code>printf()</code>, it uses the format specifier to determine which type to pull off next.</p>
+<p>And when you’re done, call <code>va_end()</code> to wrap it up. You <strong>must</strong> (the spec says) call this on a particular <code>va_list</code> variable before you decide to call either <code>va_start()</code> or <code>va_copy()</code> on it again. I know we haven’t talked about <code>va_copy()</code> yet.</p>
+<p>So the standard progression is:</p>
+<ul>
+<li><code>va_start()</code> to initialize your <code>va_list</code> variable</li>
+<li>Repeatedly <code>va_arg()</code> to get the values</li>
+<li><code>va_end()</code> to deinitialize your <code>va_list</code> variable</li>
+</ul>
+<p> </p>
+<p></p>
+<p>I also mentioned <code>va_copy()</code> up there; it makes a copy of your <code>va_list</code> variable in the exact same state. That is, if you haven’t started with <code>va_arg()</code> with the source variable, the new one won’t be started, either. If you’ve consumed 5 variables with <code>va_arg()</code> so far, the copy will also reflect that.</p>
+<p><code>va_copy()</code> can be useful if you need to scan ahead through the arguments but need to also remember your current place.</p>
+<p></p>
+<h2 data-number="25.4" id="library-functions-that-use-va_lists"><span class="header-section-number">25.4</span> Library Functions That Use <code>va_list</code>s</h2>
+<p></p>
+<p>One of the other uses for these is pretty cool: writing your own custom <code>printf()</code> variant. It would be a pain to have to handle all those format specifiers right? All zillion of them?</p>
+<p>Luckily, there are <code>printf()</code> variants that accept a working <code>va_list</code> as an argument. You can use these to wrap up and make your own custom <code>printf()</code>s!</p>
+<p></p>
+<p>These functions start with the letter <code>v</code>, such as <code>vprintf()</code>, <code>vfprintf()</code>, <code>vsprintf()</code>, and <code>vsnprintf()</code>. Basically all your <code>printf()</code> golden oldies except with a <code>v</code> in front.</p>
+<p>Let’s make a function <code>my_printf()</code> that works just like <code>printf()</code> except it takes an extra argument up front.</p>
+<div class="sourceCode" id="cb538"><pre class="sourceCode numberSource c numberLines"><code class="sourceCode c"><span id="cb538-1"><a href="variadic-functions.html#cb538-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb538-2"><a href="variadic-functions.html#cb538-2"></a><span class="pp">#include </span><span class="im">&lt;stdarg.h&gt;</span></span>
+<span id="cb538-3"><a href="variadic-functions.html#cb538-3"></a></span>
+<span id="cb538-4"><a href="variadic-functions.html#cb538-4"></a><span class="dt">int</span> my_printf<span class="op">(</span><span class="dt">int</span> serial<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>format<span class="op">,</span> <span class="op">...)</span></span>
+<span id="cb538-5"><a href="variadic-functions.html#cb538-5"></a><span class="op">{</span></span>
+<span id="cb538-6"><a href="variadic-functions.html#cb538-6"></a>    <span class="dt">va_list</span> va<span class="op">;</span></span>
+<span id="cb538-7"><a href="variadic-functions.html#cb538-7"></a>    <span class="dt">int</span> rv<span class="op">;</span></span>
+<span id="cb538-8"><a href="variadic-functions.html#cb538-8"></a></span>
+<span id="cb538-9"><a href="variadic-functions.html#cb538-9"></a>    <span class="co">// Do my custom work</span></span>
+<span id="cb538-10"><a href="variadic-functions.html#cb538-10"></a>    printf<span class="op">(</span><span class="st">&quot;The serial number is: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> serial<span class="op">);</span></span>
+<span id="cb538-11"><a href="variadic-functions.html#cb538-11"></a></span>
+<span id="cb538-12"><a href="variadic-functions.html#cb538-12"></a>    <span class="co">// Then pass the rest off to vprintf()</span></span>
+<span id="cb538-13"><a href="variadic-functions.html#cb538-13"></a>    va_start<span class="op">(</span>va<span class="op">,</span> format<span class="op">);</span></span>
+<span id="cb538-14"><a href="variadic-functions.html#cb538-14"></a>    rv <span class="op">=</span> vprintf<span class="op">(</span>format<span class="op">,</span> va<span class="op">);</span></span>
+<span id="cb538-15"><a href="variadic-functions.html#cb538-15"></a>    va_end<span class="op">(</span>va<span class="op">);</span></span>
+<span id="cb538-16"><a href="variadic-functions.html#cb538-16"></a></span>
+<span id="cb538-17"><a href="variadic-functions.html#cb538-17"></a>    <span class="cf">return</span> rv<span class="op">;</span></span>
+<span id="cb538-18"><a href="variadic-functions.html#cb538-18"></a><span class="op">}</span></span>
+<span id="cb538-19"><a href="variadic-functions.html#cb538-19"></a></span>
+<span id="cb538-20"><a href="variadic-functions.html#cb538-20"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span></span>
+<span id="cb538-21"><a href="variadic-functions.html#cb538-21"></a><span class="op">{</span></span>
+<span id="cb538-22"><a href="variadic-functions.html#cb538-22"></a>    <span class="dt">int</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb538-23"><a href="variadic-functions.html#cb538-23"></a>    <span class="dt">float</span> y <span class="op">=</span> <span class="fl">3.2</span><span class="op">;</span></span>
+<span id="cb538-24"><a href="variadic-functions.html#cb538-24"></a></span>
+<span id="cb538-25"><a href="variadic-functions.html#cb538-25"></a>    my_printf<span class="op">(</span><span class="dv">3490</span><span class="op">,</span> <span class="st">&quot;x is </span><span class="sc">%d</span><span class="st">, y is </span><span class="sc">%f\n</span><span class="st">&quot;</span><span class="op">,</span> x<span class="op">,</span> y<span class="op">);</span></span>
+<span id="cb538-26"><a href="variadic-functions.html#cb538-26"></a><span class="op">}</span></span></code></pre></div>
+<p>See what we did there? On lines 12-14 we started a new <code>va_list</code> variable, and then just passed it right into <code>vprintf()</code>. And it knows just want to do with it, because it has all the <code>printf()</code> smarts built-in.</p>
+<p></p>
+<p>We still have to call <code>va_end()</code> when we’re done, though, so don’t forget that!</p>
+<p> </p>
+<h2 data-number="25.5" id="variadic-macro-gotchas"><span class="header-section-number">25.5</span> Variadic Macro Gotchas</h2>
+<p>Like I’ve mentioned, <code>va_start()</code> and <code>va_end()</code> could be macros. One of the consequences of this might be that they could potentially introduce a new local scope. (That is, if <code>va_start()</code> has <code>{</code> and <code>va_end()</code> contains <code>}</code>.)</p>
+<p></p>
+<p>So we need to watch out for potential scoping issues. Take the following example:</p>
+<div class="sourceCode" id="cb539"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb539-1"><a href="variadic-functions.html#cb539-1" aria-hidden="true" tabindex="-1"></a>va_start<span class="op">(</span>va<span class="op">,</span> format<span class="op">);</span>          <span class="co">// may contain {</span></span>
+<span id="cb539-2"><a href="variadic-functions.html#cb539-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> rv <span class="op">=</span> vprintf<span class="op">(</span>format<span class="op">,</span> va<span class="op">);</span></span>
+<span id="cb539-3"><a href="variadic-functions.html#cb539-3" aria-hidden="true" tabindex="-1"></a>va_end<span class="op">(</span>va<span class="op">);</span>                    <span class="co">// may contain }</span></span>
+<span id="cb539-4"><a href="variadic-functions.html#cb539-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb539-5"><a href="variadic-functions.html#cb539-5" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> rv<span class="op">;</span></span></code></pre></div>
+<p>If <code>va_start()</code> opens a new scope, <code>rv</code> will be local to that scope and then the <code>return</code> statement will fail. But this will insidiously only happen on compilers that happen to do that with the <code>va</code> macros.</p>
+<p></p>
+<!-- BG_NEW_CHAPTER -->
+<!-- Beej's guide to C
+
+# vim: ts=4:sw=4:nosi:et:tw=72
+-->
+<hr><div style="text-align:center"><span><a href="bitwise-operations.html" rel="prev">Prev</a> | </span><a href="index.html">Contents</a><span> | <a href="locale-and-internationalization.html" rel="next">Next</a></span></div></body>
+</html>

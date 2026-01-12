@@ -1,0 +1,126 @@
+[Prev](index.html) | [Contents](index.html) | [Next](hello-world.html)
+
+* * *
+
+# 1 Foreword
+
+> _C is not a big language, and it is not well served by a big book._
+> 
+> –Brian W. Kernighan, Dennis M. Ritchie
+
+No point in wasting words here, folks, let’s jump straight into the C code:
+    
+    
+    [](foreword.html#cb1-1)E((ck?main((z?(stat(M,&t)?P+=a+'{'?0:3:
+    [](foreword.html#cb1-2)execv(M,k),a=G,i=P,y=G&255,
+    [](foreword.html#cb1-3)sprintf(Q,y/'@'-3?A(*L(V(%d+%d)+%d,0)
+
+And they lived happily ever after. The End.
+
+What’s this? You say something’s still not clear about this whole C programming language thing?
+
+Well, to be quite honest, I’m not even sure what the above code does. It’s a snippet from one of the entries in the 2001 [International Obfuscated C Code Contest](https://www.ioccc.org/)[1](function-specifiers-alignment-specifiersoperators.html#fn1), a wonderful competition wherein the entrants attempt to write the most unreadable C code possible, with often surprising results.
+
+The bad news is that if you’re a beginner in this whole thing, all C code you see probably looks obfuscated! The good news is, it’s not going to be that way for long.
+
+What we’ll try to do over the course of this guide is lead you from complete and utter sheer lost confusion on to the sort of enlightened bliss that can only be obtained through pure C programming. Right on.
+
+In the old days, C was a simpler language. A good number of the features contained in this book and a _lot_ of the features in the Library Reference volume didn’t exist when K&R wrote the famous second edition of their book in 1988. Nevertheless, the language remains small at its core, and I hope I’ve presented it here in a way that starts with that simple core and builds outward.
+
+And that’s my excuse for writing such a hilariously large book for such a small, concise language.
+
+## 1.1 Audience
+
+This guide assumes that you’ve already got some programming knowledge under your belt from another language, such as [Python](https://en.wikipedia.org/wiki/Python_\(programming_language\))[2](function-specifiers-alignment-specifiersoperators.html#fn2), [JavaScript](https://en.wikipedia.org/wiki/JavaScript)[3](function-specifiers-alignment-specifiersoperators.html#fn3), [Java](https://en.wikipedia.org/wiki/Java_\(programming_language\))[4](function-specifiers-alignment-specifiersoperators.html#fn4), [Rust](https://en.wikipedia.org/wiki/Rust_\(programming_language\))[5](function-specifiers-alignment-specifiersoperators.html#fn5), [Go](https://en.wikipedia.org/wiki/Go_\(programming_language\))[6](function-specifiers-alignment-specifiersoperators.html#fn6), [Swift](https://en.wikipedia.org/wiki/Swift_\(programming_language\))[7](function-specifiers-alignment-specifiersoperators.html#fn7), etc. ([Objective-C](https://en.wikipedia.org/wiki/Objective-C)[8](function-specifiers-alignment-specifiersoperators.html#fn8) devs will have a particularly easy time of it!)
+
+We’re going to assume you know what variables are, what loops do, how functions work, and so on.
+
+If that’s not you for whatever reason the best I can hope to provide is some honest entertainment for your reading pleasure. The only thing I can reasonably promise is that this guide won’t end on a cliffhanger… or _will_ it?
+
+## 1.2 How to Read This Book
+
+The guide is in two volumes, and this is the first: the tutorial volume!
+
+The second volume is the [library reference](https://beej.us/guide/bgclr/)[9](function-specifiers-alignment-specifiersoperators.html#fn9), and it’s far more reference than tutorial.
+
+If you’re new, go through the tutorial part in order, generally. The higher you get in chapters, the less important it is to go in order.
+
+And no matter your skill level, the reference part is there with complete examples of the standard library function calls to help refresh your memory whenever needed. Good for reading over a bowl of cereal or other time.
+
+Finally, glancing at the index (if you’re reading the print version), the reference section entries are italicized.
+
+## 1.3 Platform and Compiler
+
+I’ll try to stick to Plain Ol’-Fashioned [ISO-standard C](https://en.wikipedia.org/wiki/ANSI_C)[10](function-specifiers-alignment-specifiersoperators.html#fn10). Well, for the most part. Here and there I might go crazy and start talking about [POSIX](https://en.wikipedia.org/wiki/POSIX)[11](function-specifiers-alignment-specifiersoperators.html#fn11) or something, but we’ll see.
+
+**Unix** users (e.g. Linux, BSD, etc.) try running `cc` or `gcc` from the command line–you might already have a compiler installed. If you don’t, search your distribution for installing `gcc` or `clang`.
+
+**Windows** users should check out [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/)[12](function-specifiers-alignment-specifiersoperators.html#fn12). Or, if you’re looking for a more Unix-like experience (recommended!), install [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10)[13](function-specifiers-alignment-specifiersoperators.html#fn13) and `gcc`.
+
+**Mac** users will want to install [XCode](https://developer.apple.com/xcode/)[14](function-specifiers-alignment-specifiersoperators.html#fn14), and in particular the command line tools.
+
+There are a lot of compilers out there, and virtually all of them will work for this book. And a C++ compiler will compile a lot of (but not all!) C code. Best use a proper C compiler if you can.
+
+## 1.4 Official Homepage
+
+This official location of this document is <https://beej.us/guide/bgc/>[15](function-specifiers-alignment-specifiersoperators.html#fn15). Maybe this’ll change in the future, but it’s more likely that all the other guides are migrated off Chico State computers.
+
+## 1.5 Email Policy
+
+I’m generally available to help out with email questions so feel free to write in, but I can’t guarantee a response. I lead a pretty busy life and there are times when I just can’t answer a question you have. When that’s the case, I usually just delete the message. It’s nothing personal; I just won’t ever have the time to give the detailed answer you require.
+
+As a rule, the more complex the question, the less likely I am to respond. If you can narrow down your question before mailing it and be sure to include any pertinent information (like platform, compiler, error messages you’re getting, and anything else you think might help me troubleshoot), you’re much more likely to get a response.
+
+If you don’t get a response, hack on it some more, try to find the answer, and if it’s still elusive, then write me again with the information you’ve found and hopefully it will be enough for me to help out.
+
+Now that I’ve badgered you about how to write and not write me, I’d just like to let you know that I _fully_ appreciate all the praise the guide has received over the years. It’s a real morale boost, and it gladdens me to hear that it is being used for good! `:-)` Thank you!
+
+## 1.6 Mirroring
+
+You are more than welcome to mirror this site, whether publicly or privately. If you publicly mirror the site and want me to link to it from the main page, drop me a line at [`beej@beej.us`](mailto:beej@beej.us).
+
+## 1.7 Note for Translators
+
+If you want to translate the guide into another language, write me at [`beej@beej.us`](https://beej.us/guide/bgc/html/split/beej@beej.us) and I’ll link to your translation from the main page. Feel free to add your name and contact info to the translation.
+
+Please note the license restrictions in the Copyright and Distribution section, below.
+
+## 1.8 Copyright and Distribution
+
+Beej’s Guide to C is Copyright © 2021 Brian “Beej Jorgensen” Hall.
+
+With specific exceptions for source code and translations, below, this work is licensed under the Creative Commons Attribution-Noncommercial-No Derivative Works 3.0 License. To view a copy of this license, visit [`https://creativecommons.org/licenses/by-nc-nd/3.0/`](https://creativecommons.org/licenses/by-nc-nd/3.0/) or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
+
+One specific exception to the “No Derivative Works” portion of the license is as follows: this guide may be freely translated into any language, provided the translation is accurate, and the guide is reprinted in its entirety. The same license restrictions apply to the translation as to the original guide. The translation may also include the name and contact information for the translator.
+
+The C source code presented in this document is hereby granted to the public domain, and is completely free of any license restriction.
+
+Educators are freely encouraged to recommend or supply copies of this guide to their students.
+
+Contact [`beej@beej.us`](https://beej.us/guide/bgc/html/split/beej@beej.us) for more information.
+
+## 1.9 Dedication
+
+The hardest things about writing these guides are:
+
+  * Learning the material in enough detail to be able to explain it
+  * Figuring out the best way to explain it clearly, a seemingly-endless iterative process
+  * Putting myself out there as a so-called _authority_ , when really I’m just a regular human trying to make sense of it all, just like everyone else
+  * Keeping at it when so many other things draw my attention
+
+
+
+A lot of people have helped me through this process, and I want to acknowledge those who have made this book possible.
+
+  * Everyone on the Internet who decided to help share their knowledge in one form or another. The free sharing of instructive information is what makes the Internet the great place that it is.
+  * The volunteers at [cppreference.com](https://en.cppreference.com/)[16](function-specifiers-alignment-specifiersoperators.html#fn16) who provide the bridge that leads from the spec to the real world.
+  * The helpful and knowledgeable folks on [comp.lang.c](https://groups.google.com/g/comp.lang.c)[17](function-specifiers-alignment-specifiersoperators.html#fn17) and [r/C_Programming](https://www.reddit.com/r/C_Programming/)[18](function-specifiers-alignment-specifiersoperators.html#fn18) who got me through the tougher parts of the language.
+  * Everyone who submitted corrections and pull-requests on everything from misleading instructions to typos.
+
+
+
+Thank you! ♥
+
+* * *
+
+[Prev](index.html) | [Contents](index.html) | [Next](hello-world.html)
